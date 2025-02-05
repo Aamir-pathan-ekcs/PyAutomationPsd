@@ -672,7 +672,7 @@ for file_name in os.listdir(input_dir):
                 if layer.name == "bg":
                     color = get_layer_color(layer)
                     if color:
-                        # print(f"backgroundColor has color: {color}")
+                        print(f"bgnc running ")
                     # else:
                     #     print("backgroundColor has no color.") 
 
