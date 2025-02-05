@@ -272,7 +272,7 @@ for file_name in os.listdir(input_dir):
                         x3, y3 = x3 * width, y3 * height
                         x4, y4 = x4 * width, y4 * height
                         
-                        print(f"Scaled Coordinates: TL({x1}, {y1}), TR({x2}, {y2}), BR({x3}, {y3}), BL({x4}, {y4})")
+                        # print(f"Scaled Coordinates: TL({x1}, {y1}), TR({x2}, {y2}), BR({x3}, {y3}), BL({x4}, {y4})")
                         
                         top_edge = math.dist((x1, y1), (x2, y2))  
                         right_edge = math.dist((x2, y2), (x3, y3))  
@@ -672,9 +672,9 @@ for file_name in os.listdir(input_dir):
                 if layer.name == "bg":
                     color = get_layer_color(layer)
                     if color:
-                        print(f"backgroundColor has color: {color}")
-                    else:
-                        print("backgroundColor has no color.") 
+                        # print(f"backgroundColor has color: {color}")
+                    # else:
+                    #     print("backgroundColor has no color.") 
 
 
                 html_content = ['<!DOCTYPE html>',
