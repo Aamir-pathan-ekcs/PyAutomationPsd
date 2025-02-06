@@ -195,8 +195,8 @@ for file_name in os.listdir(input_dir):
                             html_content.append('</div>')
                             css_content.append(f"""
                             .logo {{
-                                width: {logo_width -2}px;
-                                height: {logo_height - 2}px;
+                                width: {logo_width -3}px;
+                                height: {logo_height - 3}px;
                                 position: absolute;
                                 left: {logo_x}px;
                                 top: {logo_y}px;
@@ -205,8 +205,8 @@ for file_name in os.listdir(input_dir):
                                 justify-content: flex-start;
                             }}
                             .logo img{{
-                                max-width: {logo_width -2}px;
-                                max-height: {logo_height - 2}px;
+                                max-width: {logo_width -3}px;
+                                max-height: {logo_height - 3}px;
                             }}
                             """)
                             logo_processed = True
@@ -591,16 +591,16 @@ for file_name in os.listdir(input_dir):
                             if cnt == 1:
                                 css_content.append(f"""
                                     .imageBox {{
-                                        width: {width-2}px;
-                                        height: {height-2}px;
+                                        width: {width-3}px;
+                                        height: {height-3}px;
                                         position: absolute;
                                         left: {x1}px;
                                         top: {y1}px;
                                         z-index: 1;
                                     }}
                                     .imageBox img {{
-                                        width: {width-2}px;
-                                        height: {height-2}px;
+                                        width: {width-3}px;
+                                        height: {height-3}px;
                                         object-fit: cover;
                                     }}
                                 """)
