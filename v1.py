@@ -5,6 +5,7 @@ import os
 import numpy as np
 from psd_tools.psd.engine_data import List
 import math
+from collections import Counter
 
 input_dir = "input"
 if not os.path.exists(input_dir):
@@ -29,22 +30,14 @@ for file_name in os.listdir(input_dir):
                 """Sanitize layer names to be valid filenames."""
                 return re.sub(r'[<>:"/\\|?*]', '_', filename)
 
-            def get_darker_color(layer, factor=0.6, min_light=10):
+            def get_better_color(layer):
                 if layer.name == "cta" and layer.is_group():
                     for rect in layer:
-                        if hasattr(rect, 'is_shape'):
-                            try:
-                                color = rect.fill_color
-                                if color:
-                                    return tuple(max(int(c * factor), min_light) for c in color[:3])
-                            except AttributeError:
-                                return None 
-                        image = rect.composite().convert("RGB")
-                        np_image = np.array(image)
-
-                        avg_color = np.mean(np_image, axis=(0, 1))
-                        return tuple(max(int(c * factor), min_light) for c in avg_color)
-                return None
+                        if rect.kind == "shape":
+                            image = rect.topil()
+                            pixels = list(image.getdata())
+                            most_common_color = Counter(pixels).most_common(1)[0][0]
+                            return most_common_color
 
             def get_layer_color(layer):
                 if layer.name == "bg" or layer.name == "shape 1":
@@ -202,8 +195,8 @@ for file_name in os.listdir(input_dir):
                             html_content.append('</div>')
                             css_content.append(f"""
                             .logo {{
-                                width: {logo_width}px;
-                                height: {logo_height}px;
+                                width: {logo_width -2}px;
+                                height: {logo_height - 2}px;
                                 position: absolute;
                                 left: {logo_x}px;
                                 top: {logo_y}px;
@@ -212,8 +205,8 @@ for file_name in os.listdir(input_dir):
                                 justify-content: flex-start;
                             }}
                             .logo img{{
-                                max-width: {logo_width}px;
-                                max-height: {logo_height}px;
+                                max-width: {logo_width -2}px;
+                                max-height: {logo_height - 2}px;
                             }}
                             """)
                             logo_processed = True
@@ -645,7 +638,7 @@ for file_name in os.listdir(input_dir):
                             content_html_app.append(f'<a class="button" id="sd_btn_Click-Through-URL" target="_blank" href="http://www.ekcs.co">{text_content}')
                             content_html_app.append('</a>')
                             content_html_app.append('</div>')
-                            ctaColor = get_darker_color(layer)
+                            ctaColor = get_better_color(layer)
                             css_content.append(f"""
                                 .cta {{
                                     position: absolute;
