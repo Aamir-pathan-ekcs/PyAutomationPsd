@@ -574,7 +574,7 @@ for file_name in os.listdir(input_dir):
                                     cnt += 1
                                     # print(f"Processing first child layer: {pp.name} {width} {height}")
                                     image_path = f"output/{file_name_t}/images/{pp.name}.png"
-                                    if cnt < 4:
+                                    if cnt < 6:
                                         try:
                                             cropped_image = image.crop() 
                                             cropped_image = cropped_image.crop(cropped_image.getbbox())
@@ -583,7 +583,7 @@ for file_name in os.listdir(input_dir):
                                             print(f"Saved image for {pp.name} at {image_path}")
                                         except Exception as e:
                                             print(f"Failed to save image for {layer.name}: {e}")
-                            if cnt < 4:
+                            if cnt < 6:
                                 # html_content.append(f'<div class="contentSection"></div>')
                                 html_content.append(f'<div class="mainImage{cnt} imageBox animate_zoomInZoomOut delay_0s">')
                                 html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{cnt}" />')
@@ -605,6 +605,50 @@ for file_name in os.listdir(input_dir):
                                     }}
                                 """)
                             print(f"Processed image: {sanitized_name}")
+
+
+                        if "hero2" in layer.name:
+                            print(f"from hero 2: {pp.name}")
+                            for index, child_layer in enumerate(layer):
+                                if index == 0:
+                                    if child_layer.kind == 'pixel':
+                                        print(f"woww{layer.name}")
+                                    x1, y1, x2, y2 = child_layer.bbox
+                                    width = x2 - x1
+                                    height = y2 - y1
+                                    cnt += 1
+                                    # print(f"Processing first child layer: {pp.name} {width} {height}")
+                                    image_path = f"output/{file_name_t}/images/{pp.name}.png"
+                                    try:
+                                        cropped_image = image.crop() 
+                                        cropped_image = cropped_image.crop(cropped_image.getbbox())
+                                        cropped_image.save(image_path)
+                                        
+                                        print(f"Saved image for {pp.name} at {image_path}")
+                                    except Exception as e:
+                                        print(f"Failed to save image for {layer.name}: {e}")
+                                # html_content.append(f'<div class="contentSection"></div>')
+                                html_content.append(f'<div class="mainImage2 imageBox2 animate_zoomInZoomOut delay_0s">')
+                                html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{cnt}" />')
+                                html_content.append('</div>')
+                                css_content.append(f"""
+                                    .imageBox2 {{
+                                        width: {width-3}px;
+                                        height: {height-3}px;
+                                        position: absolute;
+                                        left: {x1}px;
+                                        top: {y1}px;
+                                        z-index: 1;
+                                    }}
+                                    .imageBox2 img {{
+                                        width: {width-3}px;
+                                        height: {height-3}px;
+                                        object-fit: cover;
+                                    }}
+                                """)
+                            print(f"Processed image: {sanitized_name}")
+
+
 
                                        
                         if "cta" in pp.name:
