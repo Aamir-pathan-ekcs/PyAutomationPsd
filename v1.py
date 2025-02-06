@@ -338,7 +338,8 @@ for file_name in os.listdir(input_dir):
                             overflow: hidden;
                         }}
                                     """)
-
+                    # else:
+                    #     xe2, ye2
                     # elif "imageHero1" in layer.name:
                     #     image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
                     #     try:
@@ -590,16 +591,16 @@ for file_name in os.listdir(input_dir):
                             if cnt == 1:
                                 css_content.append(f"""
                                     .imageBox {{
-                                        width: {width-1}px;
-                                        height: {height-1}px;
+                                        width: {width-2}px;
+                                        height: {height-2}px;
                                         position: absolute;
                                         left: {x1}px;
                                         top: {y1}px;
                                         z-index: 1;
                                     }}
                                     .imageBox img {{
-                                        width: {width-1}px;
-                                        height: {height-1}px;
+                                        width: {width-2}px;
+                                        height: {height-2}px;
                                         object-fit: cover;
                                     }}
                                 """)
