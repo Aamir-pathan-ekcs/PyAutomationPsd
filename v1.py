@@ -182,9 +182,11 @@ for file_name in os.listdir(input_dir):
                     #         }}
                     #                     """)
                     # global logo_width, logo_height, logo_x, logo_y
-                    if "logoArea" in layer.name:
+                    logo_processed = False
+                    if "logoArea" in layer.name and not logo_processed:
                         logo_width, logo_height = width, height
                         logo_x, logo_y = x1, y1
+                        return
 
                     if "logo" in layer.name:
                         image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
@@ -205,12 +207,16 @@ for file_name in os.listdir(input_dir):
                                 position: absolute;
                                 left: {logo_x}px;
                                 top: {logo_y}px;
+                                display: flex;
+                                align-items: flex-start;
+                                justify-content: flex-start;
                             }}
                             .logo img{{
                                 max-width: {logo_width}px;
                                 max-height: {logo_height}px;
                             }}
                             """)
+                            logo_processed = True
                             print(f"Processed Logo: {sanitized_name}")
 
                     # elif "Hero" in layer.name:
