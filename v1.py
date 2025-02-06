@@ -115,6 +115,7 @@ for file_name in os.listdir(input_dir):
                 x1, y1, x2, y2 = layer.bbox
                 width = x2 - x1
                 height = y2 - y1
+                global xe2, ye2, logo_width, logo_height, logo_x, logo_y
                 cnt = 0
                 imageLayer = f"sd_img_Image"
                 """Process individual layers and generate HTML/CSS."""
@@ -180,32 +181,37 @@ for file_name in os.listdir(input_dir):
                     #             color: #333;
                     #         }}
                     #                     """)
+                    # global logo_width, logo_height, logo_x, logo_y
+                    if "logoArea" in layer.name:
+                        logo_width, logo_height = width, height
+                        logo_x, logo_y = x1, y1
+
                     if "logo" in layer.name:
                         image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
-                        try:
-                            image.save(image_path)
-                            print(f"Saved image for {layer.name} at {image_path}")
-                            extracted_values['logo_path'] = image_path
-                        except Exception as e:
-                            print(f"Failed to save image for {layer.name}: {e}")
-                        html_content.append(f'<div class="logo">')
-                        html_content.append(f'<img src="images/{sanitized_name}.png" alt="logo" id="sd_img_Logo"/>')
-                        html_content.append('</div>')
-                        css_content.append(f"""
-                        .logo {{
-                            width: {width}px;
-                            height: {height}px;
-                            position: absolute;
-                            left: {x1}px;
-                            top: {y1}px;
-                        }}
-                        .logo img{{
-                            max-width: {width}px;
-                            max-height: {height}px;
-                        }}
-                        """)
-                        print(f"Processed Logo: {sanitized_name}")
-                    
+                        if cnt == 0:
+                            try:
+                                image.save(image_path)
+                                print(f"Saved image for {layer.name} at {image_path}")
+                                extracted_values['logo_path'] = image_path
+                            except Exception as e:
+                                print(f"Failed to save image for {layer.name}: {e}")
+                            html_content.append(f'<div class="logo">')
+                            html_content.append(f'<img src="images/{sanitized_name}.png" alt="logo" id="sd_img_Logo"/>')
+                            html_content.append('</div>')
+                            css_content.append(f"""
+                            .logo {{
+                                width: {logo_width}px;
+                                height: {logo_height}px;
+                                position: absolute;
+                                left: {logo_x}px;
+                                top: {logo_y}px;
+                            }}
+                            .logo img{{
+                                max-width: {logo_width}px;
+                                max-height: {logo_height}px;
+                            }}
+                            """)
+                            print(f"Processed Logo: {sanitized_name}")
 
                     # elif "Hero" in layer.name:
                     #     html_content.append(f'<div class="mainImage1 imageBox" id="{imageLayer}">')
@@ -272,7 +278,7 @@ for file_name in os.listdir(input_dir):
                         x3, y3 = x3 * width, y3 * height
                         x4, y4 = x4 * width, y4 * height
                         
-                        # print(f"Scaled Coordinates: TL({x1}, {y1}), TR({x2}, {y2}), BR({x3}, {y3}), BL({x4}, {y4})")
+                        print(f"Scaled Coordinates: TL({x1}, {y1}), TR({x2}, {y2}), BR({x3}, {y3}), BL({x4}, {y4})")
                         
                         top_edge = math.dist((x1, y1), (x2, y2))  
                         right_edge = math.dist((x2, y2), (x3, y3))  
@@ -321,9 +327,7 @@ for file_name in os.listdir(input_dir):
                         }}
                                     """)
 
-
                     if "contentArea" in layer.name:
-                        global xe2, ye2
                         xe2, ye2 = x1, y1
                         css_content.append(f"""
                         .contentSection {{
@@ -368,7 +372,14 @@ for file_name in os.listdir(input_dir):
                     for pp in reversed(layer):
                         if hasattr(pp, 'kind') and pp.kind == 'type':
                             print(f"Text layer found: {pp.name}")
-                            
+                                                    # if pp.has_vector_mask():
+                        #     print(f"mask {pp.name} has a vector mask")
+                        #     vector_mask = pp.vector_mask()
+                        #     print("Vector mask data:", vector_mask)
+                        #     print(type(vector_mask))  # Debug: Check object type
+                        #     print(dir(vector_mask)) 
+                        #     if vector_mask and hasattr(vector_mask, "paths"):
+                        #         print("Vector mask paths:", vector_mask.paths)
                             if hasattr(pp, 'text') and pp.text:
                                 text_content = pp.text
                                 print(f"Text content found: {text_content}")
@@ -672,9 +683,9 @@ for file_name in os.listdir(input_dir):
                 if layer.name == "bg":
                     color = get_layer_color(layer)
                     if color:
-                        print(f"bgnc running ")
-                    # else:
-                    #     print("backgroundColor has no color.") 
+                        print(f"backgroundColor has color: {color}")
+                    else:
+                        print("backgroundColor has no color.") 
 
 
                 html_content = ['<!DOCTYPE html>',
