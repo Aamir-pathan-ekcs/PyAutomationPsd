@@ -109,7 +109,7 @@ for file_name in os.listdir(input_dir):
                 width = x2 - x1
                 height = y2 - y1
                 global xe2, ye2, logo_width, logo_height, logo_x, logo_y
-                cnt = 0
+                cnt = cnt2 = 0
                 imageLayer = f"sd_img_Image"
                 """Process individual layers and generate HTML/CSS."""
                 if not layer.is_group() and layer.composite():
@@ -301,17 +301,10 @@ for file_name in os.listdir(input_dir):
                         html_content.append('</div>')
                         ShapeColor = get_layer_color(layer)
 
-                        corner_points = extract_corner_points(layer)
-                        if corner_points:
-                            effects = get_layer_effects(layer)
-                            if effects:
-                                print(f"Found effects on this layer: {effects}")
-                            
-                            border_radius = estimate_border_radius(corner_points, layer.width, layer.height)
-                            # print(f"Estimated Border Radius: {border_radius} pixels")
-                        else:
-                            print("No corner points found.")
-                        print("-----")
+                        if layer.kind == "shape":
+                            if hasattr(layer, "vector_mask") and layer.vector_mask:
+                                vector_mask = layer.vector_mask
+                                print(f"Vector Mask Found: {vector_mask}")
 
                         css_content.append(f"""
                         .shape1 {{
@@ -321,7 +314,7 @@ for file_name in os.listdir(input_dir):
                             left: {x1}px;
                             top: {y1}px;
                             background-color: rgb{ShapeColor};
-                            border-radius: {border_radius};
+                            border-radius: {0};
                            
                         }}
                                     """)
@@ -367,7 +360,9 @@ for file_name in os.listdir(input_dir):
                 elif layer.is_group():
                     incre = cSubheading = 1
                     animateCr = 3
+                    HeroAnimate = 0
                     animateCrOut = 6
+                    counters = 1
                     print(f"Skipping group: {layer.name}")
                     for pp in reversed(layer):
                         if hasattr(pp, 'kind') and pp.kind == 'type':
@@ -562,77 +557,77 @@ for file_name in os.listdir(input_dir):
                                         """)
                             incre += 1; cSubheading += 1
                             animateCr += 4; animateCrOut += 3
-                        if "hero" in layer.name:
-                            print(f"from hero: {pp.name}")
-                            for index, child_layer in enumerate(layer):
-                                if index == 0:
-                                    if child_layer.kind == 'pixel':
-                                        print(f"woww{layer.name}")
+                        if "hero" in layer.name or "hero2" in layer.name:
+                            print(f"Processing hero layer: {layer.name}")
+                            cssImage = None
+                            check = None
+                            for idx, child_layer in enumerate(reversed(layer)):
+                                if "imageWrap1" in child_layer.name or "imageWrap" in child_layer.name:
+                                    print(f"skipping shape: {child_layer.name}")
+                                    # if child_layer.kind == "shape":
+                                    #     print("yyyyyy")
+                                    #     if hasattr(child_layer, "vector_mask") and child_layer.vector_mask:
+                                    #         vector_mask = child_layer.vector_mask
+                                    #         print(f"Vector Mask Found: {vector_mask}")
+
+                                    #         # Extract paths
+                                    #         for path_idx, path in enumerate(vector_mask.paths):
+                                    #             print(f"Processing Path {path_idx + 1}:")
+                                                
+                                    #             clip_path_points = []
+                                                
+                                    #             for point in path:
+                                    #                 if hasattr(point, "anchor"):  # Extract anchor points
+                                    #                     x, y = point.anchor
+                                    #                     clip_path_points.append((x, y))
+                                    #                     print(f"  Point: ({x}, {y})")
+
+                                    #             # Convert points to CSS `clip-path: polygon(...)` format
+                                    #             if clip_path_points:
+                                    #                 clip_path_css = "clip-path: polygon(" + ", ".join(f"{x*100}% {y*100}%" for x, y in clip_path_points) + ");"
+                                    #                 print(f"Generated Clip Path: {clip_path_css}")
+
+
+                                    check = child_layer.name
                                     x1, y1, x2, y2 = child_layer.bbox
                                     width = x2 - x1
                                     height = y2 - y1
-                                    cnt += 1
-                                    # print(f"Processing first child layer: {pp.name} {width} {height}")
-                                    image_path = f"output/{file_name_t}/images/{pp.name}.png"
-                                    if cnt < 6:
-                                        try:
-                                            cropped_image = image.crop() 
-                                            cropped_image = cropped_image.crop(cropped_image.getbbox())
-                                            cropped_image.save(image_path)
-                                            
-                                            print(f"Saved image for {pp.name} at {image_path}")
-                                        except Exception as e:
-                                            print(f"Failed to save image for {layer.name}: {e}")
-                            if cnt < 6:
-                                # html_content.append(f'<div class="contentSection"></div>')
-                                html_content.append(f'<div class="mainImage{cnt} imageBox animate_zoomInZoomOut delay_0s">')
-                                html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{cnt}" />')
-                                html_content.append('</div>')
-                            if cnt == 1:
-                                css_content.append(f"""
-                                    .imageBox {{
-                                        width: {width-3}px;
-                                        height: {height-3}px;
-                                        position: absolute;
-                                        left: {x1}px;
-                                        top: {y1}px;
-                                        z-index: 1;
-                                    }}
-                                    .imageBox img {{
-                                        width: {width-3}px;
-                                        height: {height-3}px;
-                                        object-fit: cover;
-                                    }}
-                                """)
-                            print(f"Processed image: {sanitized_name}")
-
-
-                        if "hero2" in layer.name:
-                            print(f"from hero 2: {pp.name}")
-                            for index, child_layer in enumerate(layer):
-                                if index == 0:
-                                    if child_layer.kind == 'pixel':
-                                        print(f"woww{layer.name}")
-                                    x1, y1, x2, y2 = child_layer.bbox
-                                    width = x2 - x1
-                                    height = y2 - y1
-                                    cnt += 1
-                                    # print(f"Processing first child layer: {pp.name} {width} {height}")
-                                    image_path = f"output/{file_name_t}/images/{pp.name}.png"
+                                    print(f"{child_layer.name} bbox have this{x1, y1, x2, y2}")
+                                    continue
+                                if pp.kind not in ['pixel', 'smartobject']:
+                                    print(f"no pixel")
+                                    continue
+                                if pp.is_visible():
+                                    image_path = f"output/{file_name_t}/images/{child_layer.name}.png"
+                                    imageFileName = child_layer.name
                                     try:
-                                        cropped_image = image.crop() 
+                                        layer_image = child_layer.topil()
+                                        cropped_image = layer_image.crop()
                                         cropped_image = cropped_image.crop(cropped_image.getbbox())
                                         cropped_image.save(image_path)
-                                        
-                                        print(f"Saved image for {pp.name} at {image_path}")
-                                    except Exception as e:
-                                        print(f"Failed to save image for {layer.name}: {e}")
-                                # html_content.append(f'<div class="contentSection"></div>')
-                                html_content.append(f'<div class="mainImage2 imageBox2 animate_zoomInZoomOut delay_0s">')
-                                html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{cnt}" />')
-                                html_content.append('</div>')
+                                    except:
+                                        print(f"Failed to save image for {pp.name}: {e}")                    
+                            if counters == 1 or counters == 2 or counters == 3:
+                                HeroAnimation = f" animate_fadeIn delay_{HeroAnimate}_5s"
+                            else:
+                                HeroAnimation = ''              
+                            if "hero" in layer.name: 
+                                cssImage = 1
+                                if "imageWrap1" not in pp.name and "imageWrap" not in pp.name:  
+                                    html_content.append(f'<div class="mainImage{counters} imageBox{cssImage} {HeroAnimation}">')
+                                    html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
+                                    html_content.append('</div>')
+                                counters += 1
+                            if "hero2" in layer.name: 
+                                cssImage = 2  
+                                if "imageWrap1" not in pp.name and "imageWrap" not in pp.name:  
+                                    html_content.append(f'<div class="mainImage{counters} imageBox{cssImage} {HeroAnimation}">')
+                                    html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
+                                    html_content.append('</div>')
+                                counters += 1      
+                            if counters == 1 or counters == 3:
                                 css_content.append(f"""
-                                    .imageBox2 {{
+                                    .imageBox{cssImage} {{
                                         width: {width-3}px;
                                         height: {height-3}px;
                                         position: absolute;
@@ -640,15 +635,62 @@ for file_name in os.listdir(input_dir):
                                         top: {y1}px;
                                         z-index: 1;
                                     }}
-                                    .imageBox2 img {{
+                                    .imageBox{cssImage} img {{
                                         width: {width-3}px;
                                         height: {height-3}px;
                                         object-fit: cover;
                                     }}
                                 """)
+                            HeroAnimate += 4    
                             print(f"Processed image: {sanitized_name}")
 
 
+                        # if "hero2" in layer.name:
+                        #     print(f"from hero 2: {pp.name}")
+                        #     for idx, child_layer in enumerate(reversed(layer)):
+                        #         if "imageWrap1" in child_layer.name or "imageWrap" in child_layer.name:
+                        #             print(f"skipping shape: {child_layer.name}")
+                        #             x1, y1, x2, y2 = child_layer.bbox
+                        #             width = x2 - x1
+                        #             height = y2 - y1
+                        #             print(f"{child_layer.name} bbox have this{x1, y1, x2, y2}")
+                        #             continue
+                        #         if pp.kind not in ['pixel', 'smartobject']:
+                        #             print(f"no pixel")
+                        #             continue
+                        #         if pp.is_visible():
+                        #             image_path = f"output/{file_name_t}/images/{child_layer.name}.png"
+                        #             imageFileName = child_layer.name
+                        #             try:
+                        #                 layer_image = child_layer.topil()
+                        #                 cropped_image = layer_image.crop()
+                        #                 cropped_image = cropped_image.crop(cropped_image.getbbox())
+                        #                 cropped_image.save(image_path)
+                        #             except:
+                        #                 print(f"Failed to save image for {pp.name}: {e}")      
+                        #     if not "imageWrap1" in pp.name:
+                        #         print(f"pppp{idx}")
+                        #         cnt2 += 1  
+                        #         html_content.append(f'<div class="mainImage{cnt2} imageBox2 animate_zoomInZoomOut delay_0s">')
+                        #         html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{cnt2}-second" />')
+                        #         html_content.append('</div>')
+                        #         if cnt2 == 1:
+                        #             css_content.append(f"""
+                        #                 .imageBox2 {{
+                        #                     width: {width-3}px;
+                        #                     height: {height-3}px;
+                        #                     position: absolute;
+                        #                     left: {x1}px;
+                        #                     top: {y1}px;
+                        #                     z-index: 1;
+                        #                 }}
+                        #                 .imageBox2 img {{
+                        #                     width: {width-3}px;
+                        #                     height: {height-3}px;
+                        #                     object-fit: cover;
+                        #                 }}
+                        #             """)
+                        #         print(f"Processed image: {sanitized_name}")
 
                                        
                         if "cta" in pp.name:
