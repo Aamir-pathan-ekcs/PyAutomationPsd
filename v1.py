@@ -497,8 +497,8 @@ for file_name in os.listdir(input_dir):
                                 width: {width}px;
                                 height: {height}px;
                                 position: absolute;
-                                left: {x1 - xe2}px;
-                                top: {y1 - ye2}px;
+                                left: {x1 - xe2 -1}px;
+                                top: {y1 - ye2 -1}px;
                                 font-family: {fontf}', serif;
                                 font-weight: {fontGetWeight};
                                 font-size: {font_sized}px;
@@ -519,8 +519,8 @@ for file_name in os.listdir(input_dir):
                                     width: {width}px;
                                     height: {height}px;
                                     position: absolute;
-                                    left: {x1 - xe2}px;
-                                    top: {y1 - ye2}px;
+                                    left: {x1 - xe2 -1}px;
+                                    top: {y1 - ye2 -1}px;
                                     font-family: {fontf}', serif;
                                     font-weight: {fontGetWeight};
                                     font-size: {font_sized}px;
@@ -545,8 +545,8 @@ for file_name in os.listdir(input_dir):
                                     width: {width}px;
                                     height: {height}px;
                                     position: absolute;
-                                    left: {x1 - xe2}px;
-                                    top: {y1 - ye2}px;
+                                    left: {x1 - xe2 -1}px;
+                                    top: {y1 - ye2 -1}px;
                                     font-family: {fontf}', serif;
                                     font-weight: {fontGetWeight};
                                     font-size: {font_sized}px;
