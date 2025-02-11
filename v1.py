@@ -59,24 +59,6 @@ for file_name in os.listdir(input_dir):
 
                     avg_color = np.mean(np_image, axis=(0, 1)) 
                     return tuple(map(int, avg_color))
-                # if layer.name == "shape 1":
-                    if layer.is_group():
-                        return None
-
-                    if hasattr(layer, 'is_shape') and layer.is_shape():
-                        try:
-                            color = layer.fill_color
-                            if color:
-                                return color 
-                        except AttributeError:
-                            return None 
-
-                    image = layer.composite()
-                    image = image.convert("RGB")
-                    np_image = np.array(image) 
-
-                    avg_color = np.mean(np_image, axis=(0, 1))
-                    return tuple(map(int, avg_color))
 
                 # if layer.name == "cta" and layer.is_group():
                 #     print(f"checking layer {layer.name}")
@@ -96,7 +78,16 @@ for file_name in os.listdir(input_dir):
 
                 #         avg_color = np.mean(np_image, axis=(0, 1))
                 #         return tuple(map(int, avg_color))
-                
+            
+            def get_text_layer_dimensions(layer):
+                if layer.kind == 'type': 
+                    x1, y1, x2, y2 = layer.bbox
+                    width, height = x2 - x1, y2 - y1 
+                    return width, height
+                return None, None
+
+
+
 
             extracted_values = {}
 
@@ -200,6 +191,9 @@ for file_name in os.listdir(input_dir):
                                 position: absolute;
                                 left: {logo_x}px;
                                 top: {logo_y}px;
+                                display: flex;
+                                align-items: flex-start;
+                                justify-content: flex-start;
                             }}
                             .logo img{{
                                 max-width: {logo_width -3}px;
@@ -362,6 +356,8 @@ for file_name in os.listdir(input_dir):
                     counters = 1
                     print(f"Skipping group: {layer.name}")
                     for pp in reversed(layer):
+                        # if layer.kind == "shape":
+                        #     continue
                         if hasattr(pp, 'kind') and pp.kind == 'type':
                             print(f"Text layer found: {pp.name}")
                                                     # if pp.has_vector_mask():
@@ -453,25 +449,51 @@ for file_name in os.listdir(input_dir):
                                                 rgb_stroke = rgba_to_rgb(stroke_color)
                                             rgb_color = rgb_fill
 
+                                            # fontset = pp.resource_dict['FontSet']
+                                            def extract_font_weight(font_name):
+                                                font_weights = {
+                                                    'Thin': '100',
+                                                    'ExtraLight': '200',
+                                                    'Light': '300',
+                                                    'Regular': '400',
+                                                    'Normal': '400',
+                                                    'Medium': '500',
+                                                    'SemiBold': '600',
+                                                    'Bold': '700',
+                                                    'ExtraBold': '800',
+                                                    'Black': '900',
+                                                }
+
+                                                # print(f"DEBUG: Raw Font Name → {repr(font_name)}")
+                                                font_name = font_name.strip().strip("'\"")  # Remove spaces and extra quotes
+                                                font_name = font_name.replace("\xa0", " ")  # Convert non-breaking spaces
+                                                font_name = font_name.encode("ascii", "ignore").decode()  # Remove hidden Unicode
+
+                                                # print(f"DEBUG: Cleaned Font Name → {repr(font_name)}")
+
+                                                match = re.match(r'^(.*?)[-_]?(Thin|ExtraLight|Light|Regular|Normal|Medium|SemiBold|Bold|ExtraBold|Black)?$', font_name, re.IGNORECASE)
+
+                                                # 🔍 DEBUG: Show regex match result
+                                                if match:
+                                                    # print(f"DEBUG: Regex Match Groups → {match.groups()}")
+                                                    font_family = match.group(1)
+                                                    fontWt = match.group(2) if match.group(2) else "Regular"
+                                                else:
+                                                    # print("DEBUG: ❌ Regex did NOT match!")
+                                                    font_family = font_name
+                                                    fontWt = "Regular"
+
+                                                fontWt = fontWt.capitalize() if fontWt.lower() != "regular" else "Regular"
+                                                fontGetWeight = font_weights.get(fontWt, '400')
+                                                return font_family, fontWt, fontGetWeight
+
                                             fontset = pp.resource_dict['FontSet']
-                                            font_name = fontset[0]['Name']
-                                            font_family = str(font_name).split('-')[0]
-                                            fontWt = str(font_name).split('-')[1]
-                                            fontf = f'{font_family}'
-                                            font_weights = {
-                                                'Thin': '100',
-                                                'Extra Light': '200',
-                                                'Light': '300',
-                                                'Regular': '400',
-                                                'Normal': '400',
-                                                'Medium': '500',
-                                                'Semi Bold': '600',
-                                                'Bold': '700',
-                                                'Extra Bold': '800',
-                                                'Black': '900',
-                                            }
-                                            weight = str(fontWt).strip("'")
-                                            fontGetWeight = font_weights.get(weight, 400)
+                                            fontsGet = str(fontset[0]['Name']).strip("'\"")
+                                            # print(f"Extracted Font Name: {repr(fontsGet)}")
+
+                                            family, font_weight_name, weight_value = extract_font_weight(fontsGet)
+                                            # print(f"Font: {fontsGet} → Family: {family}, Weight Name: {font_weight_name}, Weight Value: {weight_value}")
+
                                     except Exception as e:
                                         print(f"Error accessing engine dict data: {e}")
                                 
@@ -494,10 +516,10 @@ for file_name in os.listdir(input_dir):
                                 width: {width}px;
                                 height: {height}px;
                                 position: absolute;
-                                left: {x1 - xe2 -0.5}px;
-                                top: {y1 - ye2 -0.5}px;
-                                font-family: {fontf}', serif;
-                                font-weight: {fontGetWeight};
+                                left: {x1 - xe2}px;
+                                top: {y1 - ye2}px;
+                                font-family: '{family}', serif;
+                                font-weight: {weight_value};
                                 font-size: {font_sized}px;
                                 color: rgb{rgb_color};
                                 line-height: {line_height_em}em;
@@ -505,9 +527,43 @@ for file_name in os.listdir(input_dir):
                             }}
                                         """)
 
+
+                        # if "contactWrap" in layer.name:
+                        #     if "contactArea" not in getattr(pp, "name", "") and "contactBackground" not in getattr(pp, "name", ""):
+                        #         content_html_app.append(f'<div class="contactWrap animate_fadeIn delay_0s"><div class="contactText" id="sd_txta-text">')
+                        #         content_html_app.append(f'{text_content}')
+                        #         content_html_app.append('</div></div>')
+                        #         if pp.kind == 'type':
+                        #             contactWidth, contactHeight = get_text_layer_dimensions(pp)
+                        #         css_content.append(f"""
+                        #         .contactWrap {{
+                        #             width: {width}px;
+                        #             height: {height}px;
+                        #             position: absolute;
+                        #             left: {x1 - xe2}px;
+                        #             top: {y1 - ye2}px;
+                        #         }}
+                        #         .contactWrap {{
+                        #             width: {width}px;
+                        #             height: {height}px;
+                        #             position: absolute;
+                        #             left: {x1 - xe2}px;
+                        #             top: {y1 - ye2}px;
+                        #             font-family: {fontf}', serif;
+                        #             font-weight: {weight_value};
+                        #             font-size: {font_sized}px;
+                        #             color: rgb{rgb_color};
+                        #             line-height: {line_height_em}em;
+                        #             text-align: {text_align};
+                        #         }}
+
+                        #                     """)
+
+
+
                         
                         if "mainHeading" in layer.name:
-                            content_html_app.append(f'<div class="textWrap animate_fadeOut delay_3s"><div class="mainHeading animate_fadeInLeft delay_0s" id="sd_txta_Heading">')
+                            content_html_app.append(f'<div class="textWrap animate_fadeOutRight delay_3s"><div class="mainHeading animate_fadeInLeft delay_0s" id="sd_txta_Heading">')
                             content_html_app.append(f'{text_content}')
                             content_html_app.append('</div></div>')
                             # headingColor = get_layer_color(layer)
@@ -516,10 +572,10 @@ for file_name in os.listdir(input_dir):
                                     width: {width}px;
                                     height: {height}px;
                                     position: absolute;
-                                    left: {x1 - xe2 -0.5}px;
-                                    top: {y1 - ye2 -0.5}px;
-                                    font-family: {fontf}', serif;
-                                    font-weight: {fontGetWeight};
+                                    left: {x1 - xe2}px;
+                                    top: {y1 - ye2}px;
+                                    font-family: '{family}', serif;
+                                    font-weight: {weight_value};
                                     font-size: {font_sized}px;
                                     color: rgb{rgb_color};
                                     line-height: {line_height_em}em;
@@ -542,10 +598,10 @@ for file_name in os.listdir(input_dir):
                                     width: {width}px;
                                     height: {height}px;
                                     position: absolute;
-                                    left: {x1 - xe2 -0.5}px;
-                                    top: {y1 - ye2 -0.5}px;
-                                    font-family: {fontf}', serif;
-                                    font-weight: {fontGetWeight};
+                                    left: {x1 - xe2}px;
+                                    top: {y1 - ye2}px;
+                                    font-family: '{family}', serif;
+                                    font-weight: {weight_value};
                                     font-size: {font_sized}px;
                                     color: rgb{rgb_color};
                                     line-height: {line_height_em}em;
@@ -735,7 +791,8 @@ for file_name in os.listdir(input_dir):
                                     max-width: {width + 2}px;
                                     max-height: {height}px;
                                     font-size: {font_sized}px;
-                                    font-family: {fontf}', serif;
+                                    font-family: '{family}', serif;
+                                    font-weight: {weight_value};
                                     font-style: normal;
                                     cursor: pointer; 
                                     color: rgb{rgb_color};
@@ -749,6 +806,33 @@ for file_name in os.listdir(input_dir):
                                     border-radius: {radius_e}em;
                                 }}
                             """)
+                        
+                        # if "contactWrap" in layer.name:
+                        #     if "contactArea" in pp.name or 'contactBackground' in pp:
+                        #         continue
+                        #     content_html_app.append(f'<div class="contactWrap animate_fadeIn delay_0s"><div class="contactText" id="sd_txta-text">')
+                        #     content_html_app.append(f'{text_content}')
+                        #     content_html_app.append('</div></div>')
+                        #     print(f"gettting {pp}")
+                        #     if pp.kind == 'type':
+                        #         wws, hhs = get_text_layer_dimensions(pp)
+                        #         print(f"sTexts: {pp} Width: {wws}px, Height: {hhs}px")
+                        #     css_content.append(f"""
+                        #     .contactWrap {{
+                        #         width: {width}px;
+                        #         height: {height}px;
+                        #         position: absolute;
+                        #         left: {x1 - xe2}px;
+                        #         top: {y1 - ye2}px;
+                        #         font-family: {fontf}', serif;
+                        #         font-weight: {fontGetWeight};
+                        #         font-size: {font_sized}px;
+                        #         color: rgb{rgb_color};
+                        #         line-height: {line_height_em}em;
+                        #         text-align: {text_align};
+                        #     }}
+
+                        #                 """)
 
                         # if hasattr(pp, 'layers') and pp.layers:
                         #     process_layer(pp, html_content, css_content)
