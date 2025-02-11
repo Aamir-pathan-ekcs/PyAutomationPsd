@@ -200,9 +200,6 @@ for file_name in os.listdir(input_dir):
                                 position: absolute;
                                 left: {logo_x}px;
                                 top: {logo_y}px;
-                                display: flex;
-                                align-items: flex-start;
-                                justify-content: flex-start;
                             }}
                             .logo img{{
                                 max-width: {logo_width -3}px;
@@ -497,8 +494,8 @@ for file_name in os.listdir(input_dir):
                                 width: {width}px;
                                 height: {height}px;
                                 position: absolute;
-                                left: {x1 - xe2 -1}px;
-                                top: {y1 - ye2 -1}px;
+                                left: {x1 - xe2 -0.5}px;
+                                top: {y1 - ye2 -0.5}px;
                                 font-family: {fontf}', serif;
                                 font-weight: {fontGetWeight};
                                 font-size: {font_sized}px;
@@ -510,7 +507,7 @@ for file_name in os.listdir(input_dir):
 
                         
                         if "mainHeading" in layer.name:
-                            content_html_app.append(f'<div class="textWrap animate_fadeOutRight delay_3s"><div class="mainHeading animate_fadeInLeft delay_0s" id="sd_txta_Heading">')
+                            content_html_app.append(f'<div class="textWrap animate_fadeOut delay_3s"><div class="mainHeading animate_fadeInLeft delay_0s" id="sd_txta_Heading">')
                             content_html_app.append(f'{text_content}')
                             content_html_app.append('</div></div>')
                             # headingColor = get_layer_color(layer)
@@ -519,8 +516,8 @@ for file_name in os.listdir(input_dir):
                                     width: {width}px;
                                     height: {height}px;
                                     position: absolute;
-                                    left: {x1 - xe2 -1}px;
-                                    top: {y1 - ye2 -1}px;
+                                    left: {x1 - xe2 -0.5}px;
+                                    top: {y1 - ye2 -0.5}px;
                                     font-family: {fontf}', serif;
                                     font-weight: {fontGetWeight};
                                     font-size: {font_sized}px;
@@ -545,8 +542,8 @@ for file_name in os.listdir(input_dir):
                                     width: {width}px;
                                     height: {height}px;
                                     position: absolute;
-                                    left: {x1 - xe2 -1}px;
-                                    top: {y1 - ye2 -1}px;
+                                    left: {x1 - xe2 -0.5}px;
+                                    top: {y1 - ye2 -0.5}px;
                                     font-family: {fontf}', serif;
                                     font-weight: {fontGetWeight};
                                     font-size: {font_sized}px;
