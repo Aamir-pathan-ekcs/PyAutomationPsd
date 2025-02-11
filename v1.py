@@ -464,22 +464,16 @@ for file_name in os.listdir(input_dir):
                                                     'Black': '900',
                                                 }
 
-                                                # print(f"DEBUG: Raw Font Name → {repr(font_name)}")
-                                                font_name = font_name.strip().strip("'\"")  # Remove spaces and extra quotes
-                                                font_name = font_name.replace("\xa0", " ")  # Convert non-breaking spaces
-                                                font_name = font_name.encode("ascii", "ignore").decode()  # Remove hidden Unicode
-
-                                                # print(f"DEBUG: Cleaned Font Name → {repr(font_name)}")
+                                                font_name = font_name.strip().strip("'\"")
+                                                font_name = font_name.replace("\xa0", " ")
+                                                font_name = font_name.encode("ascii", "ignore").decode()
 
                                                 match = re.match(r'^(.*?)[-_]?(Thin|ExtraLight|Light|Regular|Normal|Medium|SemiBold|Bold|ExtraBold|Black)?$', font_name, re.IGNORECASE)
 
-                                                # 🔍 DEBUG: Show regex match result
                                                 if match:
-                                                    # print(f"DEBUG: Regex Match Groups → {match.groups()}")
                                                     font_family = match.group(1)
                                                     fontWt = match.group(2) if match.group(2) else "Regular"
                                                 else:
-                                                    # print("DEBUG: ❌ Regex did NOT match!")
                                                     font_family = font_name
                                                     fontWt = "Regular"
 
@@ -489,10 +483,8 @@ for file_name in os.listdir(input_dir):
 
                                             fontset = pp.resource_dict['FontSet']
                                             fontsGet = str(fontset[0]['Name']).strip("'\"")
-                                            # print(f"Extracted Font Name: {repr(fontsGet)}")
 
                                             family, font_weight_name, weight_value = extract_font_weight(fontsGet)
-                                            # print(f"Font: {fontsGet} → Family: {family}, Weight Name: {font_weight_name}, Weight Value: {weight_value}")
 
                                     except Exception as e:
                                         print(f"Error accessing engine dict data: {e}")
