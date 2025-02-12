@@ -781,7 +781,7 @@ for file_name in os.listdir(input_dir):
                                 .button {{
                                     min-width: {width}px;
                                     max-width: {width + 2}px;
-                                    max-height: {height}px;
+                                    max-height: {height -2}px;
                                     font-size: {font_sized}px;
                                     font-family: '{family}', serif;
                                     font-weight: {weight_value};
