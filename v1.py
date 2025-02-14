@@ -11,7 +11,7 @@ input_dir = "input"
 if not os.path.exists(input_dir):
     print(f"Input directory '{input_dir}' does not exist.")
     exit()
-
+contactWrapAdded = False
 for file_name in os.listdir(input_dir):
     file_path = os.path.join(input_dir, file_name)
     
@@ -31,7 +31,7 @@ for file_name in os.listdir(input_dir):
                 return re.sub(r'[<>:"/\\|?*]', '_', filename)
 
             def get_better_color(layer):
-                if layer.name == "cta" and layer.is_group():
+                if layer.name == "cta" and layer.is_group() or layer.name == "contactWrap" and layer.is_group():
                     for rect in layer:
                         if rect.kind == "shape":
                             image = rect.topil()
@@ -81,10 +81,10 @@ for file_name in os.listdir(input_dir):
             
             def get_text_layer_dimensions(layer):
                 if layer.kind == 'type': 
-                    x1, y1, x2, y2 = layer.bbox
-                    width, height = x2 - x1, y2 - y1 
-                    return width, height
-                return None, None
+                    tx1, ty1, tx2, ty2 = layer.bbox
+                    width, height = tx2 - tx1, ty2 - ty1 
+                    return width, height, tx1, ty1
+                return None, None, None, None
 
 
 
@@ -100,6 +100,7 @@ for file_name in os.listdir(input_dir):
                 width = x2 - x1
                 height = y2 - y1
                 global xe2, ye2, logo_width, logo_height, logo_x, logo_y
+                checkHtmlContactWrap = checkAppendContactWrap = 1
                 cnt = cnt2 = 0
                 imageLayer = f"sd_img_Image"
                 """Process individual layers and generate HTML/CSS."""
@@ -388,15 +389,48 @@ for file_name in os.listdir(input_dir):
                                             empirical_factor = 0.75  
                                             effective_font_size = (scaled_font_size_x + scaled_font_size_y) / 2 * empirical_factor
                                             font_sized = f'{scaled_font_size_x:.2f}'
-                                            def get_photoshop_line_height(font_size, auto_leading=True, custom_ratio=1.2):
-                                                font_size = float(font_size)
-                                                ratio = 1.11 if auto_leading else custom_ratio
-                                                line_height_px = round(font_size * ratio, 2)
-                                                line_height_em = round(line_height_px / font_size, 2)
-                                                return line_height_px, line_height_em
+                                            # def get_photoshop_line_height(font_size, auto_leading=True, custom_ratio=1.2):
+                                            #     font_size = float(font_size)
+                                            #     ratio = 1.11 if auto_leading else custom_ratio
+                                            #     line_height_px = round(font_size * ratio, 2)
+                                            #     line_height_em = round(line_height_px / font_size, 2)
+                                            #     return line_height_px, line_height_em
 
-                                            scaled_font_size_x2 = font_sized 
-                                            line_height_px, line_height_em = get_photoshop_line_height(scaled_font_size_x2)
+                                            # scaled_font_size_x2 = font_sized 
+                                            # line_height_px, line_height_em = get_photoshop_line_height(scaled_font_size_x2)
+                                            
+
+                                            # print(engine_data['StyleRun'].get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {})).get("")
+                                            # style = layer.engine_dict['StyleRun']['RunArray'][0]['StyleSheet']['StyleSheetData']
+                                            # line_height = style.get('Leading', None)  # Extract line height
+
+                                            # Extract Style Data
+                                            LineHeightstyle_data = engine_data['StyleRun'].get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {})
+                                            line_height = LineHeightstyle_data.get('Leading', None)
+                                            try:
+                                                line_height = float(line_height) if line_height and str(line_height).replace('.', '', 1).isdigit() else None
+                                            except ValueError:
+                                                line_height = None
+
+                                            if line_height is None or line_height == 0:
+                                                line_height = font_sized * 1.2 
+
+                                            HScaling_factor_x = transform_matrix[0] if transform_matrix[0] != 0 else 1
+                                            HScaling_factor_y = transform_matrix[3] if transform_matrix[3] != 0 else 1
+                                            line_height_pixels = line_height * (dpi / 72)
+
+                                            scaled_line_height_x = line_height_pixels * HScaling_factor_x
+                                            scaled_line_height_y = line_height_pixels * HScaling_factor_y
+
+                                            empirical_factor = 0.8 
+                                            effective_line_height = (scaled_line_height_x + scaled_line_height_y) / 2 * empirical_factor
+
+                                            line_height_em = effective_line_height / float(font_sized)
+                                            # print(f"DEBUG: Font Size: {font_sized}, Raw Leading: {line_height}, "
+                                            #     f"Scaled X: {scaled_line_height_x}, Scaled Y: {scaled_line_height_y}, Line Height EM: {line_height_em:.3f}")
+                                            # print(f"Layer: {pp.name}, Line Height: {effective_line_height:.5f} px, {line_height_em:.3f} em")
+
+
 
                                         
                                         if 'StyleRun' in engine_data:
@@ -408,9 +442,7 @@ for file_name in os.listdir(input_dir):
 
                                             center = pp.engine_dict['StyleRun']
                                             font_caps = center.get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {}).get('FontCaps', None)
-                                            style_run_alignment = center.get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {}).get('StyleRunAlignment', None)
-                                            # paragraph in json_data['ParagraphRun']['RunArray']:
-                                            # paragraph['ParagraphSheet']['Properties']['Justification']                                     
+                                            style_run_alignment = center.get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {}).get('StyleRunAlignment', None)                                   
                                             paracheck = pp.engine_dict['ParagraphRun']
                                             aligncheck = paracheck.get('RunArray', [{}])[0].get('ParagraphSheet', {}).get('Properties', {}).get('Justification', None)
                                             if aligncheck == 0:
@@ -467,7 +499,7 @@ for file_name in os.listdir(input_dir):
                                                 font_name = font_name.strip().strip("'\"")
                                                 font_name = font_name.replace("\xa0", " ")
                                                 font_name = font_name.encode("ascii", "ignore").decode()
-
+                                                
                                                 match = re.match(r'^(.*?)[-_]?(Thin|ExtraLight|Light|Regular|Normal|Medium|SemiBold|Bold|ExtraBold|Black)?$', font_name, re.IGNORECASE)
 
                                                 if match:
@@ -476,14 +508,14 @@ for file_name in os.listdir(input_dir):
                                                 else:
                                                     font_family = font_name
                                                     fontWt = "Regular"
-
+                                                
                                                 fontWt = fontWt.capitalize() if fontWt.lower() != "regular" else "Regular"
                                                 fontGetWeight = font_weights.get(fontWt, '400')
                                                 return font_family, fontWt, fontGetWeight
 
                                             fontset = pp.resource_dict['FontSet']
                                             fontsGet = str(fontset[0]['Name']).strip("'\"")
-
+                                            
                                             family, font_weight_name, weight_value = extract_font_weight(fontsGet)
 
                                     except Exception as e:
@@ -520,39 +552,87 @@ for file_name in os.listdir(input_dir):
                                         """)
 
 
-                        # if "contactWrap" in layer.name:
-                        #     if "contactArea" not in getattr(pp, "name", "") and "contactBackground" not in getattr(pp, "name", ""):
-                        #         content_html_app.append(f'<div class="contactWrap animate_fadeIn delay_0s"><div class="contactText" id="sd_txta-text">')
-                        #         content_html_app.append(f'{text_content}')
-                        #         content_html_app.append('</div></div>')
-                        #         if pp.kind == 'type':
-                        #             contactWidth, contactHeight = get_text_layer_dimensions(pp)
-                        #         css_content.append(f"""
-                        #         .contactWrap {{
-                        #             width: {width}px;
-                        #             height: {height}px;
-                        #             position: absolute;
-                        #             left: {x1 - xe2}px;
-                        #             top: {y1 - ye2}px;
-                        #         }}
-                        #         .contactWrap {{
-                        #             width: {width}px;
-                        #             height: {height}px;
-                        #             position: absolute;
-                        #             left: {x1 - xe2}px;
-                        #             top: {y1 - ye2}px;
-                        #             font-family: {fontf}', serif;
-                        #             font-weight: {weight_value};
-                        #             font-size: {font_sized}px;
-                        #             color: rgb{rgb_color};
-                        #             line-height: {line_height_em}em;
-                        #             text-align: {text_align};
-                        #         }}
+                        if "contactWrap" in layer.name:
+                            shapeWrap =  ' id="sd_bgcolor_Contact-Background"'
+                            print(f"newww: {pp.name}")
+                            if "contactBackground" in pp.name:
+                                contentBgx1, contentBgy1, contentBgx2, contentBgy2 = pp.bbox
+                                contentBgWidth = contentBgx2 - contentBgx1
+                                contentBgHeight = contentBgy2 - contentBgy1    
+                                print(f"bghh: {contentBgWidth}, {contentBgHeight}")
+                                # html_content.append(f'<div class="outer contactWrap" id="sd_txta-BGGG">')
+                                # html_content.append('</div>')
+                                bgContact = get_better_color(layer)
+                                css_content.append(f"""
+                                    .contactWrap {{
+                                            width: {contentBgWidth}px;
+                                            height: {contentBgHeight}px;
+                                            position: absolute;
+                                            left: {contentBgx1}px;
+                                            top: {contentBgy1}px;
+                                            background: rgb{bgContact};
+                                        }}
+                                    """)
+                            if "contactArea" in pp.name:
+                                cx1, cy1, cx2, cy2 = pp.bbox
+                                AreaConWidth = cx2 - cx1 -2
+                                AreaConHeight = cy2 - cy1 -2
 
-                        #                     """)
+                            if "contactArea" not in getattr(pp, "name", "") and "contactBackground" not in getattr(pp, "name", ""):
+                                if pp.kind == 'type':
+                                    contactWidth, contactHeight, tx1, ty1 = get_text_layer_dimensions(pp)
+                                if checkHtmlContactWrap == 1:
+                                    classForContact = "tel"
+                                    idContact = "Tel"
+                                    content_html_app.append(f'<div class="contactWrap"{shapeWrap}>')
+                                else:
+                                    classForContact = "email"
+                                    idContact = "Email"
 
+                                content_html_app.append(f'<div class="{classForContact}" id="sd_txta-{idContact}">')
+                                content_html_app.append(f'{text_content}')
+                                content_html_app.append('</div>')
+                                if checkHtmlContactWrap == 2:  
+                                    content_html_app.append('</div>')  
+                                checkHtmlContactWrap += 1 
+                                
+                                if checkAppendContactWrap == 1:    
+                                    css_content.append(f"""
+                                        .tel {{
+                                            width: {AreaConWidth}px;
+                                            height: {contactHeight}px;
+                                            font-family: '{family}', serif;
+                                            font-weight: {weight_value};
+                                            font-size: {font_sized}px;
+                                            color: rgb{rgb_color};
+                                            line-height: {line_height_em}em;
+                                            text-align: {text_align};
+                                            position: absolute;
+                                            left: {tx1 - xe2}px;
+                                            top: {ty1 - xe2}px;
+                                        }}
 
+                                            """)
+                                if checkAppendContactWrap == 2:            
+                                    css_content.append(f"""
+                                        .email {{
+                                            width: {AreaConWidth}px;
+                                            height: {contactHeight}px;
+                                            font-family: '{family}', serif;
+                                            font-weight: {weight_value};
+                                            font-size: {font_sized}px;
+                                            color: rgb{rgb_color};
+                                            line-height: {line_height_em}em;
+                                            text-align: {text_align};
+                                            position: absolute;
+                                            left: {tx1 - xe2}px;
+                                            top: {ty1 - xe2}px;
+                                        }}
 
+                                            """)        
+                                checkAppendContactWrap += 1
+                                # if checkHtmlContactWrap > 1:
+                            
                         
                         if "mainHeading" in layer.name:
                             content_html_app.append(f'<div class="textWrap animate_fadeOutRight delay_3s"><div class="mainHeading animate_fadeInLeft delay_0s" id="sd_txta_Heading">')
