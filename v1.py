@@ -874,7 +874,7 @@ for file_name in os.listdir(input_dir):
                                     font-style: normal;
                                     cursor: pointer; 
                                     color: rgb{rgb_color};
-                                    display: flex;
+                                    display: inline flex;
                                     align-items: center;
                                     justify-content: center;
                                     background-color: rgb{ctaColor};
