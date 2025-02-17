@@ -32,33 +32,39 @@ for file_name in os.listdir(input_dir):
 
             def get_better_color(layer):
                 if layer.name == "cta" and layer.is_group() or layer.name == "contactWrap" and layer.is_group():
-                    for rect in layer:
-                        if rect.kind == "shape":
-                            image = rect.topil()
-                            pixels = list(image.getdata())
-                            most_common_color = Counter(pixels).most_common(1)[0][0]
-                            return most_common_color
+                    try:
+                        for rect in layer:
+                            if rect.kind == "shape":
+                                image = rect.topil()
+                                pixels = list(image.getdata())
+                                most_common_color = Counter(pixels).most_common(1)[0][0]
+                                return most_common_color
+                    except Exception as e:
+                        return None            
 
             def get_layer_color(layer):
-                if layer.name == "bg" or layer.name == "shape 1":
-                    if layer.is_group():
-                        return None 
+                try:
+                    if layer.name == "bg" or layer.name == "shape 1":
+                        if layer.is_group():
+                            return None 
 
 
-                    if hasattr(layer, 'is_shape') and layer.is_shape():
-                        try:
-                            color = layer.fill_color
-                            if color:
-                                return color 
-                        except AttributeError:
-                            return None  
+                        if hasattr(layer, 'is_shape') and layer.is_shape():
+                            try:
+                                color = layer.fill_color
+                                if color:
+                                    return color 
+                            except AttributeError:
+                                return None  
 
-                    image = layer.composite()
-                    image = image.convert("RGB")
-                    np_image = np.array(image)
+                        image = layer.composite()
+                        image = image.convert("RGB")
+                        np_image = np.array(image)
 
-                    avg_color = np.mean(np_image, axis=(0, 1)) 
-                    return tuple(map(int, avg_color))
+                        avg_color = np.mean(np_image, axis=(0, 1)) 
+                        return tuple(map(int, avg_color))
+                except Exception as e:
+                    return None        
 
                 # if layer.name == "cta" and layer.is_group():
                 #     print(f"checking layer {layer.name}")
@@ -919,6 +925,8 @@ for file_name in os.listdir(input_dir):
 
 
             for layer in psd:
+                if hasattr(layer, "locks") and getattr(layer.locks, "transparency", False):
+                    continue
                 if layer.name == "bg":
                     color = get_layer_color(layer)
                     if color:
