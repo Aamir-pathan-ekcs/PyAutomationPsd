@@ -748,6 +748,7 @@ for file_name in os.listdir(input_dir):
                                         left: {x1}px;
                                         top: {y1}px;
                                         z-index: 1;
+                                        overflow: hidden;
                                     }}
                                     .imageBox{cssImage} img {{
                                         width: {width-3}px;
@@ -820,14 +821,11 @@ for file_name in os.listdir(input_dir):
 
                                 if len(points) >= 4: 
                                     radius_p = calculate_distance(points[0], points[1], canvas_width, canvas_height)
-                                    # print(f"Calculated distance: {radius_p}")
                                     if radius_p <= 0:
                                         radius = radius_p / float(font_sized)
                                         radius_e = radius
-                                        print(f"Layer '{pp.name}' has a border radius of {radius_e:.2f} pixels")
                                     else:
                                         radius_e = 0
-                                        print(f"Layer '{pp.name}' is a sharp-edged rectangle (no border radius).")
 
                                     # print(f"Estimated border radius: {radius_e:.2f} pixels")
                                 else:
@@ -842,6 +840,7 @@ for file_name in os.listdir(input_dir):
                             ctaColor = get_better_color(layer)
                             css_content.append(f"""
                                 .cta {{
+                                    display: flex;
                                     position: absolute;
                                     left: {x1 - xe2}px;
                                     top: {y1 - ye2}px;
