@@ -39,6 +39,15 @@ for file_name in os.listdir(input_dir):
                                 pixels = list(image.getdata())
                                 most_common_color = Counter(pixels).most_common(1)[0][0]
                                 return most_common_color
+                            elif getattr(rect, "kind", None) == "pixel" or hasattr(rect, "getpixel"):
+                                if hasattr(rect , "topil"):  # Ensure it can be converted
+                                    image = rect.topil().convert("RGB")
+                                    pixels = list(image.getdata())
+                                    if pixels:
+                                        return Counter(pixels).most_common(1)[0][0]
+
+
+
                     except Exception as e:
                         return None            
 
@@ -624,10 +633,9 @@ for file_name in os.listdir(input_dir):
                             
                         
                         if "mainHeading" in layer.name:
-                            content_html_app.append(f'<div class="textWrap animate_fadeOutRight delay_3s"><div class="mainHeading animate_fadeInLeft delay_0s" id="sd_txta_Heading">')
+                            content_html_app.append(f'<div class="textWrap animate_fadeOut delay_3s"><div class="mainHeading animate_fadeInLeft delay_0s" id="sd_txta_Heading">')
                             content_html_app.append(f'{text_content}')
                             content_html_app.append('</div></div>')
-                            # headingColor = get_layer_color(layer)
                             css_content.append(f"""
                                 .mainHeading {{
                                     width: {width}px;
@@ -712,7 +720,8 @@ for file_name in os.listdir(input_dir):
                                     print(f"no pixel")
                                     continue
                                 if pp.is_visible():
-                                    image_path = f"output/{file_name_t}/images/{child_layer.name}.png"
+                                    file_update_name = re.sub(r'\s+', '-', child_layer.name.strip())
+                                    image_path = f"output/{file_name_t}/images/{file_update_name}.png"
                                     imageFileName = child_layer.name
                                     try:
                                         layer_image = child_layer.topil()
@@ -724,12 +733,20 @@ for file_name in os.listdir(input_dir):
                             if counters == 1 or counters == 2 or counters == 3:
                                 HeroAnimation = f" animate_fadeIn delay_{HeroAnimate}_5s"
                             else:
-                                HeroAnimation = ''              
-                            if "hero" in layer.name: 
+                                HeroAnimation = ''         
+
+                            if "hero" in layer.name and "hero2" in layer.name:     
+                                cssImage = 1
+                            # else:
+                            #     cssImage = ''
+                            #     cssImage = cssImage.strip()
+
+                            if "hero" in layer.name:
                                 cssImage = 1
                                 if "imageWrap1" not in pp.name and "imageWrap" not in pp.name:  
+                                    final_path_image = re.sub(r'\s+', '-', pp.name)
                                     html_content.append(f'<div class="mainImage{counters} imageBox{cssImage} {HeroAnimation}">')
-                                    html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
+                                    html_content.append(f'<img src="images/{final_path_image}.png" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
                                     html_content.append('</div>')
                                 counters += 1
                             if "hero2" in layer.name: 
@@ -831,6 +848,8 @@ for file_name in os.listdir(input_dir):
                                 else:
                                     radius_e = 0
                                     # print("Not enough points detected for a rounded rectangle.")
+                            else:
+                                radius_e = 0
 
 
                             content_html_app.append(f'<div class="cta animate_fadeIn delay_4_5s">')
