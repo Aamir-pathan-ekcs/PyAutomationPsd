@@ -395,43 +395,33 @@ for file_name in os.listdir(input_dir):
                                             empirical_factor = 0.75  
                                             effective_font_size = (scaled_font_size_x + scaled_font_size_y) / 2 * empirical_factor
                                             font_sized = f'{scaled_font_size_x:.2f}'
-                                            # def get_photoshop_line_height(font_size, auto_leading=True, custom_ratio=1.2):
-                                            #     font_size = float(font_size)
-                                            #     ratio = 1.11 if auto_leading else custom_ratio
-                                            #     line_height_px = round(font_size * ratio, 2)
-                                            #     line_height_em = round(line_height_px / font_size, 2)
-                                            #     return line_height_px, line_height_em
-
-                                            # scaled_font_size_x2 = font_sized 
-                                            # line_height_px, line_height_em = get_photoshop_line_height(scaled_font_size_x2)
                                             
 
                                             # print(engine_data['StyleRun'].get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {})).get("")
                                             # style = layer.engine_dict['StyleRun']['RunArray'][0]['StyleSheet']['StyleSheetData']
                                             # line_height = style.get('Leading', None)  # Extract line height
 
-                                            # Extract Style Data
                                             LineHeightstyle_data = engine_data['StyleRun'].get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {})
                                             line_height = LineHeightstyle_data.get('Leading', None)
+                                            # print(f"line height data {LineHeightstyle_data}")
                                             try:
-                                                line_height = float(line_height) if line_height and str(line_height).replace('.', '', 1).isdigit() else None
-                                            except ValueError:
+                                                line_height = float(line_height) if line_height and isinstance(line_height, (int, float, str)) and str(line_height).replace('.', '', 1).isdigit() else None
+                                            except (ValueError, TypeError):
                                                 line_height = None
 
-                                            if line_height is None or line_height == 0:
-                                                line_height = font_sized * 1.2 
+                                            if not line_height or line_height == 0:
+                                                line_height = float(font_sized) * (1.0 if float(font_sized) < 20 else 1.2)
 
-                                            HScaling_factor_x = transform_matrix[0] if transform_matrix[0] != 0 else 1
-                                            HScaling_factor_y = transform_matrix[3] if transform_matrix[3] != 0 else 1
+                                            VScaling_factor_y = transform_matrix[3] if transform_matrix[3] != 0 else 1
+
+                                            max_scaling = 0.81 if float(font_sized) < 20 else 0.835
+                                            VScaling_factor_y = min(VScaling_factor_y, max_scaling)
+
                                             line_height_pixels = line_height * (dpi / 72)
+                                            scaled_line_height = line_height_pixels * VScaling_factor_y
+                                            scaled_line_height = max(scaled_line_height, float(font_sized) * 1.0)
+                                            line_height_em = scaled_line_height / float(font_sized)
 
-                                            scaled_line_height_x = line_height_pixels * HScaling_factor_x
-                                            scaled_line_height_y = line_height_pixels * HScaling_factor_y
-
-                                            empirical_factor = 0.8 
-                                            effective_line_height = (scaled_line_height_x + scaled_line_height_y) / 2 * empirical_factor
-
-                                            line_height_em = effective_line_height / float(font_sized)
                                             # print(f"DEBUG: Font Size: {font_sized}, Raw Leading: {line_height}, "
                                             #     f"Scaled X: {scaled_line_height_x}, Scaled Y: {scaled_line_height_y}, Line Height EM: {line_height_em:.3f}")
                                             # print(f"Layer: {pp.name}, Line Height: {effective_line_height:.5f} px, {line_height_em:.3f} em")
@@ -440,12 +430,6 @@ for file_name in os.listdir(input_dir):
 
                                         
                                         if 'StyleRun' in engine_data:
-                                            # runlength = pp.engine_dict['StyleRun']['RunLengthArray']
-                                            # caps = pp.engine_dict['StyleRun']['RunArray']
-                                            # for index, style in enumerate(caps):
-                                            #     font_caps = style['StyleSheet']['StyleSheetData'].get('FontCaps', None)
-                                            #     print(f"FontCaps value for style {index}: {font_caps}")
-
                                             center = pp.engine_dict['StyleRun']
                                             font_caps = center.get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {}).get('FontCaps', None)
                                             style_run_alignment = center.get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {}).get('StyleRunAlignment', None)                                   
@@ -506,16 +490,15 @@ for file_name in os.listdir(input_dir):
                                                 font_name = font_name.replace("\xa0", " ")
                                                 font_name = font_name.encode("ascii", "ignore").decode()
                                                 
-                                                match = re.match(r'^(.*?)[-_]?(Thin|ExtraLight|Light|Regular|Normal|Medium|SemiBold|Bold|ExtraBold|Black)?$', font_name, re.IGNORECASE)
-
+                                                match = re.match(r'^(.*?)[-_ ]?(Thin|ExtraLight|Light|Regular|Normal|Medium|SemiBold|Bold|ExtraBold|Black)?$', font_name, re.IGNORECASE)
                                                 if match:
-                                                    font_family = match.group(1)
+                                                    font_family = match.group(1).strip()
                                                     fontWt = match.group(2) if match.group(2) else "Regular"
                                                 else:
                                                     font_family = font_name
                                                     fontWt = "Regular"
                                                 
-                                                fontWt = fontWt.capitalize() if fontWt.lower() != "regular" else "Regular"
+                                                fontWt = fontWt[0].upper() + fontWt[1:] if fontWt.lower() != "regular" else "Regular"
                                                 fontGetWeight = font_weights.get(fontWt, '400')
                                                 return font_family, fontWt, fontGetWeight
 
