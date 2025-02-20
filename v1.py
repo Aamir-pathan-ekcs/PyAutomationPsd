@@ -208,7 +208,7 @@ for file_name in os.listdir(input_dir):
                                 left: {logo_x}px;
                                 top: {logo_y}px;
                                 display: flex;
-                                align-items: flex-start;
+                                align-items: center;
                                 justify-content: flex-start;
                             }}
                             .logo img{{
@@ -633,7 +633,7 @@ for file_name in os.listdir(input_dir):
                             
                         
                         if "mainHeading" in layer.name:
-                            content_html_app.append(f'<div class="textWrap animate_fadeOut delay_3s"><div class="mainHeading animate_fadeInLeft delay_0s" id="sd_txta_Heading">')
+                            content_html_app.append(f'<div class="textWrap animate_fadeOut delay_3s"><div class="mainHeading animate_fadeIn delay_0s" id="sd_txta_Heading">')
                             content_html_app.append(f'{text_content}')
                             content_html_app.append('</div></div>')
                             css_content.append(f"""
@@ -654,11 +654,13 @@ for file_name in os.listdir(input_dir):
                         
 
                         if "subHeading" in layer.name:
-                            if cSubheading == 1 or cSubheading == 2:
+                            num_child_subHeading = len(layer)
+                            print(f"Total number of child layers: {num_child_subHeading} ttt: {cSubheading}")
+                            if num_child_subHeading > cSubheading:
                                 subHeadingAnimation = f" animate_fadeOut delay_{animateCrOut}s"
                             else:
                                 subHeadingAnimation = ''
-                            content_html_app.append(f'<div class="textWrap{subHeadingAnimation}"><div class="subHeading{incre} animate_fadeInLeft delay_{animateCr}s" id="{sub_heading}">')
+                            content_html_app.append(f'<div class="textWrap{subHeadingAnimation}"><div class="subHeading{incre} animate_fadeIn delay_{animateCr}s" id="{sub_heading}">')
                             content_html_app.append(f'{text_content}')
                             content_html_app.append('</div></div>')
                             if cSubheading == 1:
@@ -692,16 +694,13 @@ for file_name in os.listdir(input_dir):
                                         x1, y1, x2, y2 = child_layer.bbox
                                         width = x2 - x1
                                         height = y2 - y1
-                                        print(f"{child_layer.name} bboxdddddd have this{x1, y1, x2, y2}")
                                     continue
                                 if pp.kind not in ['pixel', 'smartobject']:
                                     print(f"no pixel")
                                     continue
                                 if pp.is_visible():
                                     imgx1, imgy1, imgx2, imgy2 = child_layer.bbox
-                                    print(f"Layer {child_layer.name} bbox: {imgx1, imgy1, imgx2, imgy2}")
                                     if imgx1 < 0 or imgy1 < 0:
-                                        print("Handling negative coordinates")
                                         crop_x1 = max(0, x1 - imgx1)
                                         crop_y1 = max(0, y1 - imgy1)
                                     else:
@@ -710,8 +709,6 @@ for file_name in os.listdir(input_dir):
 
                                     crop_x2 = min(imgx2 - imgx1, x2 - imgx1)
                                     crop_y2 = min(imgy2 - imgy1, y2 - imgy1)
-
-                                    print(f"Calculated crop area: {crop_x1}, {crop_y1}, {crop_x2}, {crop_y2}")
 
                                     file_update_name = re.sub(r'\s+', '-', child_layer.name.strip())
                                     image_path = f"output/{file_name_t}/images/{file_update_name}.jpg"
@@ -726,9 +723,6 @@ for file_name in os.listdir(input_dir):
                                     except Exception as e:
                                         print(f"Failed to save image for {child_layer.name}: {e}")
 
-                                    # else:
-                                    #     print(f"Invalid crop area for {child_layer.name}, skipping crop. Crop area: {crop_x1}, {crop_y1}")        
-                                            
                             if counters == 1 or counters == 2 or counters == 3:
                                 HeroAnimation = f" animate_fadeIn delay_{HeroAnimate}s"
                             else:
@@ -780,16 +774,13 @@ for file_name in os.listdir(input_dir):
                                         x1, y1, x2, y2 = child_layer.bbox
                                         width = x2 - x1
                                         height = y2 - y1
-                                        print(f"{child_layer.name} bboxdddddd have this{x1, y1, x2, y2}")
                                     continue
                                 if pp.kind not in ['pixel', 'smartobject']:
                                     print(f"no pixel")
                                     continue
                                 if pp.is_visible():
                                     imgx1, imgy1, imgx2, imgy2 = child_layer.bbox
-                                    print(f"Layer {child_layer.name} bbox: {imgx1, imgy1, imgx2, imgy2}")
                                     if imgx1 < 0 or imgy1 < 0:
-                                        print("Handling negative coordinates")
                                         crop_x1 = max(0, x1 - imgx1)
                                         crop_y1 = max(0, y1 - imgy1)
                                     else:
@@ -798,8 +789,6 @@ for file_name in os.listdir(input_dir):
 
                                     crop_x2 = min(imgx2 - imgx1, x2 - imgx1)
                                     crop_y2 = min(imgy2 - imgy1, y2 - imgy1)
-
-                                    print(f"Calculated crop area: {crop_x1}, {crop_y1}, {crop_x2}, {crop_y2}")
 
                                     file_update_name = re.sub(r'\s+', '-', child_layer.name.strip())
                                     image_path = f"output/{file_name_t}/images/{file_update_name}.jpg"
@@ -812,10 +801,7 @@ for file_name in os.listdir(input_dir):
                                         cropped_image.save(image_path, "JPEG", quality=98, optimize=True)
                                     except Exception as e:
                                         print(f"Failed to save image for {child_layer.name}: {e}")
-
-                                    # else:
-                                    #     print(f"Invalid crop area for {child_layer.name}, skipping crop. Crop area: {crop_x1}, {crop_y1}")        
-                                            
+    
                             if counters == 1 or counters == 2 or counters == 3:
                                 HeroAnimation = f" animate_fadeIn delay_{HeroAnimate}_5s"
                             else:
@@ -857,53 +843,6 @@ for file_name in os.listdir(input_dir):
                                 """)
                             HeroAnimate += 4    
                             print(f"Processed image: {sanitized_name}")
-
-                        # if "hero2" in layer.name:
-                        #     print(f"from hero 2: {pp.name}")
-                        #     for idx, child_layer in enumerate(reversed(layer)):
-                        #         if "imageWrap1" in child_layer.name or "imageWrap" in child_layer.name:
-                        #             print(f"skipping shape: {child_layer.name}")
-                        #             x1, y1, x2, y2 = child_layer.bbox
-                        #             width = x2 - x1
-                        #             height = y2 - y1
-                        #             print(f"{child_layer.name} bbox have this{x1, y1, x2, y2}")
-                        #             continue
-                        #         if pp.kind not in ['pixel', 'smartobject']:
-                        #             print(f"no pixel")
-                        #             continue
-                        #         if pp.is_visible():
-                        #             image_path = f"output/{file_name_t}/images/{child_layer.name}.png"
-                        #             imageFileName = child_layer.name
-                        #             try:
-                        #                 layer_image = child_layer.topil()
-                        #                 cropped_image = layer_image.crop()
-                        #                 cropped_image = cropped_image.crop(cropped_image.getbbox())
-                        #                 cropped_image.save(image_path)
-                        #             except:
-                        #                 print(f"Failed to save image for {pp.name}: {e}")      
-                        #     if not "imageWrap1" in pp.name:
-                        #         print(f"pppp{idx}")
-                        #         cnt2 += 1  
-                        #         html_content.append(f'<div class="mainImage{cnt2} imageBox2 animate_zoomInZoomOut delay_0s">')
-                        #         html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{cnt2}-second" />')
-                        #         html_content.append('</div>')
-                        #         if cnt2 == 1:
-                        #             css_content.append(f"""
-                        #                 .imageBox2 {{
-                        #                     width: {width-3}px;
-                        #                     height: {height-3}px;
-                        #                     position: absolute;
-                        #                     left: {x1}px;
-                        #                     top: {y1}px;
-                        #                     z-index: 1;
-                        #                 }}
-                        #                 .imageBox2 img {{
-                        #                     width: {width-3}px;
-                        #                     height: {height-3}px;
-                        #                     object-fit: cover;
-                        #                 }}
-                        #             """)
-                        #         print(f"Processed image: {sanitized_name}")
 
                                        
                         if "cta" in pp.name:
