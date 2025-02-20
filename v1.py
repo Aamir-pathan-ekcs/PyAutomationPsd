@@ -53,7 +53,7 @@ for file_name in os.listdir(input_dir):
 
             def get_layer_color(layer):
                 try:
-                    if layer.name == "bg" or layer.name == "shape 1":
+                    if layer.name == "bg" or layer.name == "shape 1" or layer.name == "shape1":
                         if layer.is_group():
                             return None 
 
@@ -76,7 +76,7 @@ for file_name in os.listdir(input_dir):
                     return None        
 
                 # if layer.name == "cta" and layer.is_group():
-                #     print(f"checking layer {layer.name}")
+                #     print(f"checking layer {layer.name}")sss
                 #     for rect in layer:
                 #         print(f"checking insoide {rect.name}")
                 #         if hasattr(rect, 'is_shape'):
@@ -302,7 +302,7 @@ for file_name in os.listdir(input_dir):
                         print("No rounded corners detected.")
                         return [0, 0, 0, 0]
                     
-                    if "shape 1" in layer.name:
+                    if "shape 1" in layer.name or "shape1" in layer.name:
                         
                         html_content.append(f'<div class="shape1 animate_fadeIn delay_0s" id="sd_bgcolor_Shape-1">')
                         html_content.append('</div>')
@@ -366,9 +366,9 @@ for file_name in os.listdir(input_dir):
                 
                 elif layer.is_group():
                     incre = cSubheading = 1
-                    animateCr = 3
+                    animateCr = 4
                     HeroAnimate = 0
-                    animateCrOut = 6
+                    animateCrOut = 7
                     counters = 1
                     print(f"Skipping group: {layer.name}")
                     for pp in reversed(layer):
@@ -655,10 +655,10 @@ for file_name in os.listdir(input_dir):
 
                         if "subHeading" in layer.name:
                             if cSubheading == 1 or cSubheading == 2:
-                                subHeadingAnimation = f" animate_fadeOut delay_{animateCrOut}_5s"
+                                subHeadingAnimation = f" animate_fadeOut delay_{animateCrOut}s"
                             else:
                                 subHeadingAnimation = ''
-                            content_html_app.append(f'<div class="textWrap{subHeadingAnimation}"><div class="subHeading{incre} animate_fadeInLeft delay_{animateCr}_5s" id="{sub_heading}">')
+                            content_html_app.append(f'<div class="textWrap{subHeadingAnimation}"><div class="subHeading{incre} animate_fadeInLeft delay_{animateCr}s" id="{sub_heading}">')
                             content_html_app.append(f'{text_content}')
                             content_html_app.append('</div></div>')
                             if cSubheading == 1:
@@ -678,82 +678,73 @@ for file_name in os.listdir(input_dir):
                                 }}
                                         """)
                             incre += 1; cSubheading += 1
-                            animateCr += 4; animateCrOut += 3
-                        if "hero" in layer.name or "hero2" in layer.name:
+                            animateCr += 4; animateCrOut += 4
+
+                        if "hero" in layer.name:
                             print(f"Processing hero layer: {layer.name}")
                             cssImage = None
                             check = None
                             for idx, child_layer in enumerate(reversed(layer)):
-                                if "imageWrap1" in child_layer.name or "imageWrap" in child_layer.name:
+                                if "imageWrap1" in child_layer.name or "imageWrap" in child_layer.name or "imageBorder" in child_layer.name:
                                     print(f"skipping shape: {child_layer.name}")
-                                    # if child_layer.kind == "shape":
-                                    #     print("yyyyyy")
-                                    #     if hasattr(child_layer, "vector_mask") and child_layer.vector_mask:
-                                    #         vector_mask = child_layer.vector_mask
-                                    #         print(f"Vector Mask Found: {vector_mask}")
-
-                                    #         # Extract paths
-                                    #         for path_idx, path in enumerate(vector_mask.paths):
-                                    #             print(f"Processing Path {path_idx + 1}:")
-                                                
-                                    #             clip_path_points = []
-                                                
-                                    #             for point in path:
-                                    #                 if hasattr(point, "anchor"):  # Extract anchor points
-                                    #                     x, y = point.anchor
-                                    #                     clip_path_points.append((x, y))
-                                    #                     print(f"  Point: ({x}, {y})")
-
-                                    #             # Convert points to CSS `clip-path: polygon(...)` format
-                                    #             if clip_path_points:
-                                    #                 clip_path_css = "clip-path: polygon(" + ", ".join(f"{x*100}% {y*100}%" for x, y in clip_path_points) + ");"
-                                    #                 print(f"Generated Clip Path: {clip_path_css}")
-
-
                                     check = child_layer.name
-                                    x1, y1, x2, y2 = child_layer.bbox
-                                    width = x2 - x1
-                                    height = y2 - y1
-                                    print(f"{child_layer.name} bbox have this{x1, y1, x2, y2}")
+                                    if "imageBorder" not in check:
+                                        x1, y1, x2, y2 = child_layer.bbox
+                                        width = x2 - x1
+                                        height = y2 - y1
+                                        print(f"{child_layer.name} bboxdddddd have this{x1, y1, x2, y2}")
                                     continue
                                 if pp.kind not in ['pixel', 'smartobject']:
                                     print(f"no pixel")
                                     continue
                                 if pp.is_visible():
+                                    imgx1, imgy1, imgx2, imgy2 = child_layer.bbox
+                                    print(f"Layer {child_layer.name} bbox: {imgx1, imgy1, imgx2, imgy2}")
+                                    if imgx1 < 0 or imgy1 < 0:
+                                        print("Handling negative coordinates")
+                                        crop_x1 = max(0, x1 - imgx1)
+                                        crop_y1 = max(0, y1 - imgy1)
+                                    else:
+                                        crop_x1 = x1 - imgx1
+                                        crop_y1 = y1 - imgy1
+
+                                    crop_x2 = min(imgx2 - imgx1, x2 - imgx1)
+                                    crop_y2 = min(imgy2 - imgy1, y2 - imgy1)
+
+                                    print(f"Calculated crop area: {crop_x1}, {crop_y1}, {crop_x2}, {crop_y2}")
+
                                     file_update_name = re.sub(r'\s+', '-', child_layer.name.strip())
-                                    image_path = f"output/{file_name_t}/images/{file_update_name}.png"
-                                    imageFileName = child_layer.name
+                                    image_path = f"output/{file_name_t}/images/{file_update_name}.jpg"
+
                                     try:
                                         layer_image = child_layer.topil()
-                                        cropped_image = layer_image.crop()
-                                        cropped_image = cropped_image.crop(cropped_image.getbbox())
-                                        cropped_image.save(image_path)
-                                    except:
-                                        print(f"Failed to save image for {pp.name}: {e}")                    
+                                        cropped_image = layer_image.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+                                        if cropped_image.mode in ('RGBA', 'P'):
+                                            cropped_image = cropped_image.convert("RGB")
+                                        cropped_image.save(image_path, "JPEG", quality=98, optimize=True)
+
+                                    except Exception as e:
+                                        print(f"Failed to save image for {child_layer.name}: {e}")
+
+                                    # else:
+                                    #     print(f"Invalid crop area for {child_layer.name}, skipping crop. Crop area: {crop_x1}, {crop_y1}")        
+                                            
                             if counters == 1 or counters == 2 or counters == 3:
-                                HeroAnimation = f" animate_fadeIn delay_{HeroAnimate}_5s"
+                                HeroAnimation = f" animate_fadeIn delay_{HeroAnimate}s"
                             else:
                                 HeroAnimation = ''         
 
-                            if "hero" in layer.name and "hero2" in layer.name:     
-                                cssImage = 1
-                            # else:
-                            #     cssImage = ''
-                            #     cssImage = cssImage.strip()
 
-                            if "hero" in layer.name:
-                                cssImage = 1
-                                if "imageWrap1" not in pp.name and "imageWrap" not in pp.name:  
+                            if "hero" in layer.name and "hero2" not in layer.name:
+                                if "hero" in layer.name and "hero2" not in layer.name:
+                                    cssImage = ''
+                                if "hero2" in layer.name:
+                                    cssImage = 1
+
+                                if "imageWrap1" not in pp.name and "imageWrap" not in pp.name and "imageBorder" not in pp.name:  
                                     final_path_image = re.sub(r'\s+', '-', pp.name)
-                                    html_content.append(f'<div class="mainImage{counters} imageBox{cssImage} {HeroAnimation}">')
-                                    html_content.append(f'<img src="images/{final_path_image}.png" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
-                                    html_content.append('</div>')
-                                counters += 1
-                            if "hero2" in layer.name: 
-                                cssImage = 2  
-                                if "imageWrap1" not in pp.name and "imageWrap" not in pp.name:  
-                                    html_content.append(f'<div class="mainImage{counters} imageBox{cssImage} {HeroAnimation}">')
-                                    html_content.append(f'<img src="images/{pp.name}.png" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
+                                    html_content.append(f'<div class="mainImage{counters} imageBox{cssImage}{HeroAnimation}">')
+                                    html_content.append(f'<img src="images/{final_path_image}.jpg" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
                                     html_content.append('</div>')
                                 counters += 1      
                             if counters == 1 or counters == 3:
@@ -776,6 +767,96 @@ for file_name in os.listdir(input_dir):
                             HeroAnimate += 4    
                             print(f"Processed image: {sanitized_name}")
 
+
+                        if "hero2" in layer.name:
+                            print(f"Processing hero layer: {layer.name}")
+                            cssImage = None
+                            check = None
+                            for idx, child_layer in enumerate(reversed(layer)):
+                                if "imageWrap1" in child_layer.name or "imageWrap" in child_layer.name or "imageBorder" in child_layer.name:
+                                    print(f"skipping shape: {child_layer.name}")
+                                    check = child_layer.name
+                                    if "imageBorder" not in check:
+                                        x1, y1, x2, y2 = child_layer.bbox
+                                        width = x2 - x1
+                                        height = y2 - y1
+                                        print(f"{child_layer.name} bboxdddddd have this{x1, y1, x2, y2}")
+                                    continue
+                                if pp.kind not in ['pixel', 'smartobject']:
+                                    print(f"no pixel")
+                                    continue
+                                if pp.is_visible():
+                                    imgx1, imgy1, imgx2, imgy2 = child_layer.bbox
+                                    print(f"Layer {child_layer.name} bbox: {imgx1, imgy1, imgx2, imgy2}")
+                                    if imgx1 < 0 or imgy1 < 0:
+                                        print("Handling negative coordinates")
+                                        crop_x1 = max(0, x1 - imgx1)
+                                        crop_y1 = max(0, y1 - imgy1)
+                                    else:
+                                        crop_x1 = x1 - imgx1
+                                        crop_y1 = y1 - imgy1
+
+                                    crop_x2 = min(imgx2 - imgx1, x2 - imgx1)
+                                    crop_y2 = min(imgy2 - imgy1, y2 - imgy1)
+
+                                    print(f"Calculated crop area: {crop_x1}, {crop_y1}, {crop_x2}, {crop_y2}")
+
+                                    file_update_name = re.sub(r'\s+', '-', child_layer.name.strip())
+                                    image_path = f"output/{file_name_t}/images/{file_update_name}.jpg"
+
+                                    try:
+                                        layer_image = child_layer.topil()
+                                        cropped_image = layer_image.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+                                        if cropped_image.mode in ('RGBA', 'P'):
+                                            cropped_image = cropped_image.convert("RGB")
+                                        cropped_image.save(image_path, "JPEG", quality=98, optimize=True)
+                                    except Exception as e:
+                                        print(f"Failed to save image for {child_layer.name}: {e}")
+
+                                    # else:
+                                    #     print(f"Invalid crop area for {child_layer.name}, skipping crop. Crop area: {crop_x1}, {crop_y1}")        
+                                            
+                            if counters == 1 or counters == 2 or counters == 3:
+                                HeroAnimation = f" animate_fadeIn delay_{HeroAnimate}_5s"
+                            else:
+                                HeroAnimation = ''         
+
+                            # if "hero" in layer.name and "hero2" in layer.name:     
+                            #     cssImage = 1
+                            # else:
+                            #     cssImage = ''
+                            #     cssImage = cssImage.strip()
+
+                            if "hero2" in layer.name and "hero" in layer.name:
+                                cssImage = 2
+                                if "hero" in layer.name and "hero2" not in layer.name:
+                                    cssImage = 1
+
+                                if "imageWrap1" not in pp.name and "imageWrap" not in pp.name and "imageBorder" not in pp.name:  
+                                    final_path_image = re.sub(r'\s+', '-', pp.name)
+                                    html_content.append(f'<div class="mainImage{counters} imageBox{cssImage} {HeroAnimation}">')
+                                    html_content.append(f'<img src="images/{final_path_image}.jpg" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
+                                    html_content.append('</div>')
+                                    counters += 1      
+                            if counters == 3:
+                                css_content.append(f"""
+                                    .imageBox{cssImage} {{
+                                        width: {width-3}px;
+                                        height: {height-3}px;
+                                        position: absolute;
+                                        left: {x1}px;
+                                        top: {y1}px;
+                                        z-index: 1;
+                                        overflow: hidden;
+                                    }}
+                                    .imageBox{cssImage} img {{
+                                        width: {width-3}px;
+                                        height: {height-3}px;
+                                        object-fit: cover;
+                                    }}
+                                """)
+                            HeroAnimate += 4    
+                            print(f"Processed image: {sanitized_name}")
 
                         # if "hero2" in layer.name:
                         #     print(f"from hero 2: {pp.name}")
@@ -852,7 +933,7 @@ for file_name in os.listdir(input_dir):
                                 radius_e = 0
 
 
-                            content_html_app.append(f'<div class="cta animate_fadeIn delay_4_5s">')
+                            content_html_app.append(f'<div class="cta animate_fadeIn delay_5s">')
                             content_html_app.append(f'<a class="button" id="sd_btn_Click-Through-URL" target="_blank" href="http://www.ekcs.co">{text_content}')
                             content_html_app.append('</a>')
                             content_html_app.append('</div>')
