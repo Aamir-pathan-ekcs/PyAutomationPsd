@@ -12,6 +12,66 @@ if not os.path.exists(input_dir):
     print(f"Input directory '{input_dir}' does not exist.")
     exit()
 contactWrapAdded = False
+
+
+def sanitize_filename(filename):
+    """Sanitize layer names to be valid filenames."""
+    return re.sub(r'[<>:"/\\|?*]', '_', filename)
+
+def get_better_color(layer):
+    if layer.name == "cta" and layer.is_group() or layer.name == "contactWrap" and layer.is_group():
+        try:
+            for rect in layer:
+                if rect.kind == "shape":
+                    image = rect.topil()
+                    pixels = list(image.getdata())
+                    most_common_color = Counter(pixels).most_common(1)[0][0]
+                    return most_common_color
+                elif getattr(rect, "kind", None) == "pixel" or hasattr(rect, "getpixel"):
+                    if hasattr(rect , "topil"):  # Ensure it can be converted
+                        image = rect.topil().convert("RGB")
+                        pixels = list(image.getdata())
+                        if pixels:
+                            return Counter(pixels).most_common(1)[0][0]
+
+
+
+        except Exception as e:
+            return None            
+
+def get_layer_color(layer):
+    try:
+        if layer.name == "bg" or layer.name == "shape 1" or layer.name == "shape1":
+            if layer.is_group():
+                return None 
+
+
+            if hasattr(layer, 'is_shape') and layer.is_shape():
+                try:
+                    color = layer.fill_color
+                    if color:
+                        return color 
+                except AttributeError:
+                    return None  
+
+            image = layer.composite()
+            image = image.convert("RGB")
+            np_image = np.array(image)
+
+            avg_color = np.mean(np_image, axis=(0, 1)) 
+            return tuple(map(int, avg_color))
+    except Exception as e:
+        return None        
+
+
+def get_text_layer_dimensions(layer):
+    if layer.kind == 'type': 
+        tx1, ty1, tx2, ty2 = layer.bbox
+        width, height = tx2 - tx1, ty2 - ty1 
+        return width, height, tx1, ty1
+    return None, None, None, None
+
+
 for file_name in os.listdir(input_dir):
     file_path = os.path.join(input_dir, file_name)
     
@@ -26,84 +86,17 @@ for file_name in os.listdir(input_dir):
             os.makedirs(f"{output_dir}/images", exist_ok=True)
             os.makedirs(f"{output_dir}/css", exist_ok=True)
 
-            def sanitize_filename(filename):
-                """Sanitize layer names to be valid filenames."""
-                return re.sub(r'[<>:"/\\|?*]', '_', filename)
-
-            def get_better_color(layer):
-                if layer.name == "cta" and layer.is_group() or layer.name == "contactWrap" and layer.is_group():
-                    try:
-                        for rect in layer:
-                            if rect.kind == "shape":
-                                image = rect.topil()
-                                pixels = list(image.getdata())
-                                most_common_color = Counter(pixels).most_common(1)[0][0]
-                                return most_common_color
-                            elif getattr(rect, "kind", None) == "pixel" or hasattr(rect, "getpixel"):
-                                if hasattr(rect , "topil"):  # Ensure it can be converted
-                                    image = rect.topil().convert("RGB")
-                                    pixels = list(image.getdata())
-                                    if pixels:
-                                        return Counter(pixels).most_common(1)[0][0]
-
-
-
-                    except Exception as e:
-                        return None            
-
-            def get_layer_color(layer):
-                try:
-                    if layer.name == "bg" or layer.name == "shape 1" or layer.name == "shape1":
-                        if layer.is_group():
-                            return None 
-
-
-                        if hasattr(layer, 'is_shape') and layer.is_shape():
-                            try:
-                                color = layer.fill_color
-                                if color:
-                                    return color 
-                            except AttributeError:
-                                return None  
-
-                        image = layer.composite()
-                        image = image.convert("RGB")
-                        np_image = np.array(image)
-
-                        avg_color = np.mean(np_image, axis=(0, 1)) 
-                        return tuple(map(int, avg_color))
-                except Exception as e:
-                    return None        
-
-                # if layer.name == "cta" and layer.is_group():
-                #     print(f"checking layer {layer.name}")sss
-                #     for rect in layer:
-                #         print(f"checking insoide {rect.name}")
-                #         if hasattr(rect, 'is_shape'):
-                #             try:
-                #                 color = rect.fill_color
-                #                 if color:
-                #                     return color 
-                #             except AttributeError:
-                #                 return None 
-
-                #         image = rect.composite()
-                #         image = image.convert("RGB")
-                #         np_image = np.array(image) 
-
-                #         avg_color = np.mean(np_image, axis=(0, 1))
-                #         return tuple(map(int, avg_color))
-            
-            def get_text_layer_dimensions(layer):
-                if layer.kind == 'type': 
-                    tx1, ty1, tx2, ty2 = layer.bbox
-                    width, height = tx2 - tx1, ty2 - ty1 
-                    return width, height, tx1, ty1
-                return None, None, None, None
-
-
-
-
+            sequenceOrder_layer = {
+                "mainHeading": [],
+                "subHeading": [],
+                "offer": [],
+                "cta": [],
+                "contactWrap": []
+            }
+            outerSection = {
+                "mainImages": [],
+                "shapes": []
+            }
             extracted_values = {}
 
             def process_layer(layer, html_content, css_content, content_html_app):
@@ -138,27 +131,6 @@ for file_name in os.listdir(input_dir):
                     #     except Exception as e:
                     #     print(f"Failed to save image for {layer.name}: {e}")
 
-                    # if "Heading" in layer.name:
-                    #     # For heading, add text and apply font styles
-                    #     html_content.append(f'<div class="heading" id="{sanitized_name}" '
-                    #                         f'style="position: absolute; left: {x1}px; top: {y1}px; '
-                    #                         f'width: {width}px; height: {height}px; font-family: \'Lora\', serif; '
-                    #                         f'font-size: 24px; color: #000;">')
-                    #     html_content.append(f'{sanitized_name}')
-                    #     html_content.append('</div>')
-
-                    #     css_content.append(f"""
-                    #         .heading {{
-                    #             position: absolute;
-                    #             left: {x1}px;
-                    #             top: {y1}px;
-                    #             width: {width}px;
-                    #             height: {height}px;
-                    #             font-family: 'Lora', serif;
-                    #             font-size: 24px;
-                    #             color: #000;
-                    #         }}
-                    #                     """)
                     
                     # if "Subheading" in layer.name:
                     #     # For subheading, add text and apply font styles
@@ -219,33 +191,6 @@ for file_name in os.listdir(input_dir):
                             logo_processed = True
                             print(f"Processed Logo: {sanitized_name}")
 
-                    # elif "Hero" in layer.name:
-                    #     html_content.append(f'<div class="mainImage1 imageBox" id="{imageLayer}">')
-                    #     html_content.append(f'<img src="images/{sanitized_name}.png" alt="{sanitized_name}" id="sd_img_Image-1" />')
-                    #     html_content.append('</div>')
-                    #     sanitized_name = sanitize_filename(layer.name)
-                    #     image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
-                    #     try:
-                    #         image.save(image_path)
-                    #         print(f"Saved image for {layer.name} at {image_path}")
-                    #     except Exception as e:
-                    #         print(f"Failed to save image for {layer.name}: {e}")
-                    #     css_content.append(f"""
-                    #         .imageBox {{
-                    #             position: absolute;
-                    #             left: {x1}px;
-                    #             top: {y1}px;
-                    #             width: {width}px;
-                    #             height: {height}px;
-                    #             z-index: 1;
-                    #         }}
-                    #         .imageBox img {{
-                    #             width: {width}px;
-                    #             height: {height}px;
-                    #             object-fit: cover;
-                    #         }}
-                    #     """)
-                    #     print(f"Processed image: {sanitized_name}")
                     
                     def extract_corner_points(layer):
                         """Extract corner points from a shape layer."""
@@ -304,8 +249,8 @@ for file_name in os.listdir(input_dir):
                     
                     if "shape 1" in layer.name or "shape1" in layer.name:
                         
-                        html_content.append(f'<div class="shape1 animate_fadeIn delay_0s" id="sd_bgcolor_Shape-1">')
-                        html_content.append('</div>')
+                        outerSection["shapes"].append(f'<div class="shape1 animate_fadeIn delay_0s" id="sd_bgcolor_Shape-1">')
+                        outerSection["shapes"].append('</div>')
                         ShapeColor = get_layer_color(layer)
 
                         if layer.kind == "shape":
@@ -529,9 +474,9 @@ for file_name in os.listdir(input_dir):
                         # process_layer(pp, html_content, css_content)
                         sub_heading = f"sd_txta_Sub-Heading-{incre}"    
                         if "offer" in layer.name:
-                            content_html_app.append(f'<div class="offerwrap animate_fadeIn delay_0s"><div class="offerBox" id="sd_txta_Offer-text">')
-                            content_html_app.append(f'{text_content}')
-                            content_html_app.append('</div></div>')
+                            sequenceOrder_layer["offer"].append(f'<div class="offerwrap animate_fadeIn delay_0s"><div class="offerBox" id="sd_txta_Offer-text">')
+                            sequenceOrder_layer["offer"].append(f'{text_content}')
+                            sequenceOrder_layer["offer"].append('</div></div>')
 
                             css_content.append(f"""
                             .offerBox {{
@@ -557,7 +502,6 @@ for file_name in os.listdir(input_dir):
                                 contentBgx1, contentBgy1, contentBgx2, contentBgy2 = pp.bbox
                                 contentBgWidth = contentBgx2 - contentBgx1
                                 contentBgHeight = contentBgy2 - contentBgy1    
-                                print(f"bghh: {contentBgWidth}, {contentBgHeight}")
                                 # html_content.append(f'<div class="outer contactWrap" id="sd_txta-BGGG">')
                                 # html_content.append('</div>')
                                 bgContact = get_better_color(layer)
@@ -582,16 +526,16 @@ for file_name in os.listdir(input_dir):
                                 if checkHtmlContactWrap == 1:
                                     classForContact = "tel"
                                     idContact = "Tel"
-                                    content_html_app.append(f'<div class="contactWrap"{shapeWrap}>')
+                                    sequenceOrder_layer.append(f'<div class="contactWrap"{shapeWrap}>')
                                 else:
                                     classForContact = "email"
                                     idContact = "Email"
 
-                                content_html_app.append(f'<div class="{classForContact}" id="sd_txta-{idContact}">')
-                                content_html_app.append(f'{text_content}')
-                                content_html_app.append('</div>')
+                                sequenceOrder_layer.append(f'<div class="{classForContact}" id="sd_txta-{idContact}">')
+                                sequenceOrder_layer.append(f'{text_content}')
+                                sequenceOrder_layer.append('</div>')
                                 if checkHtmlContactWrap == 2:  
-                                    content_html_app.append('</div>')  
+                                    sequenceOrder_layer.append('</div>')  
                                 checkHtmlContactWrap += 1 
                                 
                                 if checkAppendContactWrap == 1:    
@@ -633,9 +577,9 @@ for file_name in os.listdir(input_dir):
                             
                         
                         if "mainHeading" in layer.name:
-                            content_html_app.append(f'<div class="textWrap animate_fadeOut delay_3s"><div class="mainHeading animate_fadeIn delay_0s" id="sd_txta_Heading">')
-                            content_html_app.append(f'{text_content}')
-                            content_html_app.append('</div></div>')
+                            sequenceOrder_layer["mainHeading"].append(f'<div class="textWrap animate_fadeOut delay_3s"><div class="mainHeading animate_fadeIn delay_0s" id="sd_txta_Heading">')
+                            sequenceOrder_layer["mainHeading"].append(f'{text_content}')
+                            sequenceOrder_layer["mainHeading"].append('</div></div>')
                             css_content.append(f"""
                                 .mainHeading {{
                                     width: {width}px;
@@ -655,14 +599,13 @@ for file_name in os.listdir(input_dir):
 
                         if "subHeading" in layer.name:
                             num_child_subHeading = len(layer)
-                            print(f"Total number of child layers: {num_child_subHeading} ttt: {cSubheading}")
                             if num_child_subHeading > cSubheading:
                                 subHeadingAnimation = f" animate_fadeOut delay_{animateCrOut}s"
                             else:
                                 subHeadingAnimation = ''
-                            content_html_app.append(f'<div class="textWrap{subHeadingAnimation}"><div class="subHeading{incre} animate_fadeIn delay_{animateCr}s" id="{sub_heading}">')
-                            content_html_app.append(f'{text_content}')
-                            content_html_app.append('</div></div>')
+                            sequenceOrder_layer["subHeading"].append(f'<div class="textWrap{subHeadingAnimation}"><div class="subHeading{incre} animate_fadeIn delay_{animateCr}s" id="{sub_heading}">')
+                            sequenceOrder_layer["subHeading"].append(f'{text_content}')
+                            sequenceOrder_layer["subHeading"].append('</div></div>')
                             if cSubheading == 1:
                                 css_content.append(f"""
                                 .subHeading1,.subHeading2,.subHeading3 {{
@@ -737,9 +680,9 @@ for file_name in os.listdir(input_dir):
 
                                 if "imageWrap1" not in pp.name and "imageWrap" not in pp.name and "imageBorder" not in pp.name:  
                                     final_path_image = re.sub(r'\s+', '-', pp.name)
-                                    html_content.append(f'<div class="mainImage{counters} imageBox{cssImage}{HeroAnimation}">')
-                                    html_content.append(f'<img src="images/{final_path_image}.jpg" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
-                                    html_content.append('</div>')
+                                    outerSection["mainImages"].append(f'<div class="mainImage{counters} imageBox{cssImage}{HeroAnimation}">')
+                                    outerSection["mainImages"].append(f'<img src="images/{final_path_image}.jpg" alt="{sanitized_name}" id="{imageLayer}-{counters}" />')
+                                    outerSection["mainImages"].append('</div>')
                                 counters += 1      
                             if counters == 1 or counters == 3:
                                 css_content.append(f"""
@@ -872,10 +815,10 @@ for file_name in os.listdir(input_dir):
                                 radius_e = 0
 
 
-                            content_html_app.append(f'<div class="cta animate_fadeIn delay_5s">')
-                            content_html_app.append(f'<a class="button" id="sd_btn_Click-Through-URL" target="_blank" href="http://www.ekcs.co">{text_content}')
-                            content_html_app.append('</a>')
-                            content_html_app.append('</div>')
+                            sequenceOrder_layer["cta"].append(f'<div class="cta animate_fadeIn delay_5s">')
+                            sequenceOrder_layer["cta"].append(f'<a class="button" id="sd_btn_Click-Through-URL" target="_blank" href="http://www.ekcs.co">{text_content}')
+                            sequenceOrder_layer["cta"].append('</a>')
+                            sequenceOrder_layer["cta"].append('</div>')
                             ctaColor = get_better_color(layer)
                             css_content.append(f"""
                                 .cta {{
@@ -1011,42 +954,59 @@ for file_name in os.listdir(input_dir):
                     '''
                     ]
 
-                for layer in psd:
-                    process_layer(layer, html_content, css_content, content_html_app)
+            for layer in psd:
+                process_layer(layer, html_content, css_content, content_html_app)
 
-                html_content.append('<div class="contentSection">')
-                html_content.extend(content_html_app)
-                html_content.append('</div>')
 
-                html_content.append('''
-                    </div>
-                    <script>
-                        function getQueryStringValue(key) {
-                            return decodeURIComponent(window.location.search.replace(new RegExp("^(?:.*[&\\?]" + escape(key).replace(/[\\.\\+\\*]/g, "\\\\$&") + "(?:\\=([^&]*))?)?.*$", "i"), "$1"));
-                        }
+            content_html_app.extend(sequenceOrder_layer.get("mainHeading", []))
+            content_html_app.extend(sequenceOrder_layer.get("subHeading", []))
+            content_html_app.extend(sequenceOrder_layer.get("offer", []))
+            content_html_app.extend(sequenceOrder_layer.get("contactWrap", []))
+            content_html_app.extend(sequenceOrder_layer.get("cta", []))
 
-                        var clickTag = document.getElementById("sd_btn_Click-Through-URL").getAttribute("href");
-                        var trackingUrl = getQueryStringValue("trackurl");
-                        var resURL = trackingUrl + clickTag;
+            html_content.append('<div class="contentSection">')
+            html_content.extend(content_html_app)
+            html_content.append('</div>')
 
-                        var elements = document.getElementsByClassName("clicktru");
+            html_content.extend(outerSection.get("shapes", []))
+            html_content.extend(outerSection.get("mainImages", []))
 
-                        for (var i = 0; i < elements.length; i++) {
-                            elements[i].setAttribute("href", resURL);
-                        }
-                    </script>
-                </body>
-                </html>
-                ''')
-    
+            for keyClearOuter in outerSection:
+                outerSection[keyClearOuter].clear()
+            for keyClear in sequenceOrder_layer:
+                sequenceOrder_layer[keyClear].clear()
 
-                with open(f'{output_dir}/index.html', 'w') as f:
-                    f.write("\n".join(html_content))
+            html_content.append('''
+                </div>
+                <script>
+                    function getQueryStringValue(key) {
+                        return decodeURIComponent(window.location.search.replace(new RegExp("^(?:.*[&\\?]" + escape(key).replace(/[\\.\\+\\*]/g, "\\\\$&") + "(?:\\=([^&]*))?)?.*$", "i"), "$1"));
+                    }
 
-                with open(f'{output_dir}/css/style.css', 'w') as f:
-                    f.write("\n".join(css_content))
+                    var clickTag = document.getElementById("sd_btn_Click-Through-URL").getAttribute("href");
+                    var trackingUrl = getQueryStringValue("trackurl");
+                    var resURL = trackingUrl + clickTag;
 
-                print("HTML and CSS files generated.")
+                    var elements = document.getElementsByClassName("clicktru");
+
+                    for (var i = 0; i < elements.length; i++) {
+                        elements[i].setAttribute("href", resURL);
+                    }
+                </script>
+            </body>
+            </html>
+            ''')
+
+
+            with open(f'{output_dir}/index.html', 'w') as f:
+                f.write("\n".join(html_content))
+
+            with open(f'{output_dir}/css/style.css', 'w') as f:
+                f.write("\n".join(css_content))
+
+            print("HTML and CSS files generated.")
 
         except Exception as e:
             print(f"Error processing file '{file_name}': {e}")    
+
+            
