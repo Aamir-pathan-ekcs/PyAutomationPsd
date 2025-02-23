@@ -94,6 +94,7 @@ for file_name in os.listdir(input_dir):
                 "contactWrap": []
             }
             outerSection = {
+                "logo": [],
                 "mainImages": [],
                 "shapes": []
             }
@@ -169,9 +170,9 @@ for file_name in os.listdir(input_dir):
                                 extracted_values['logo_path'] = image_path
                             except Exception as e:
                                 print(f"Failed to save image for {layer.name}: {e}")
-                            html_content.append(f'<div class="logo">')
-                            html_content.append(f'<img src="images/{sanitized_name}.png" alt="logo" id="sd_img_Logo"/>')
-                            html_content.append('</div>')
+                            outerSection["logo"].append(f'<div class="logo">')
+                            outerSection["logo"].append(f'<img src="images/{sanitized_name}.png" alt="logo" id="sd_img_Logo"/>')
+                            outerSection["logo"].append('</div>')
                             css_content.append(f"""
                             .logo {{
                                 width: {logo_width -3}px;
@@ -444,22 +445,24 @@ for file_name in os.listdir(input_dir):
                                                 font_name = font_name.replace("\xa0", " ")
                                                 font_name = font_name.encode("ascii", "ignore").decode()
                                                 
-                                                match = re.match(r'^(.*?)[-_ ]?(Thin|ExtraLight|Light|Regular|Normal|Medium|SemiBold|Bold|ExtraBold|Black)?$', font_name, re.IGNORECASE)
+                                                match = re.match(r'^(.*?)[-_ ]?(Thin|ExtraLight|Light|Regular|Normal|Medium|SemiBold|Bold|ExtraBold|Black)?(Italic)?$', font_name, re.IGNORECASE)
                                                 if match:
-                                                    font_family = match.group(1).strip()
+                                                    font_family = match.group(1).replace("Roman", "").strip()
                                                     fontWt = match.group(2) if match.group(2) else "Regular"
+                                                    italic_w = match.group(3) if match.group(3) else "normal"
+                                                    italic_wd = italic_w.lower() 
                                                 else:
                                                     font_family = font_name
                                                     fontWt = "Regular"
                                                 
                                                 fontWt = fontWt[0].upper() + fontWt[1:] if fontWt.lower() != "regular" else "Regular"
                                                 fontGetWeight = font_weights.get(fontWt, '400')
-                                                return font_family, fontWt, fontGetWeight
+                                                return font_family, fontWt, fontGetWeight, italic_wd
 
                                             fontset = pp.resource_dict['FontSet']
                                             fontsGet = str(fontset[0]['Name']).strip("'\"")
                                             
-                                            family, font_weight_name, weight_value = extract_font_weight(fontsGet)
+                                            family, font_weight_name, weight_value, type_font = extract_font_weight(fontsGet)
 
                                     except Exception as e:
                                         print(f"Error accessing engine dict data: {e}")
@@ -485,9 +488,10 @@ for file_name in os.listdir(input_dir):
                                 position: absolute;
                                 left: {x1 - xe2}px;
                                 top: {y1 - ye2}px;
+                                font-size: {font_sized}px;
                                 font-family: '{family}', serif;
                                 font-weight: {weight_value};
-                                font-size: {font_sized}px;
+                                font-style: {type_font};
                                 color: rgb{rgb_color};
                                 line-height: {line_height_em}em;
                                 text-align: {text_align};
@@ -543,9 +547,10 @@ for file_name in os.listdir(input_dir):
                                         .tel {{
                                             width: {AreaConWidth}px;
                                             height: {contactHeight}px;
+                                            font-size: {font_sized}px;
                                             font-family: '{family}', serif;
                                             font-weight: {weight_value};
-                                            font-size: {font_sized}px;
+                                            font-style: {type_font};
                                             color: rgb{rgb_color};
                                             line-height: {line_height_em}em;
                                             text-align: {text_align};
@@ -560,9 +565,10 @@ for file_name in os.listdir(input_dir):
                                         .email {{
                                             width: {AreaConWidth}px;
                                             height: {contactHeight}px;
+                                            font-size: {font_sized}px;
                                             font-family: '{family}', serif;
                                             font-weight: {weight_value};
-                                            font-size: {font_sized}px;
+                                            font-style: {type_font};
                                             color: rgb{rgb_color};
                                             line-height: {line_height_em}em;
                                             text-align: {text_align};
@@ -589,6 +595,7 @@ for file_name in os.listdir(input_dir):
                                     top: {y1 - ye2}px;
                                     font-family: '{family}', serif;
                                     font-weight: {weight_value};
+                                    font-style: {type_font};
                                     font-size: {font_sized}px;
                                     color: rgb{rgb_color};
                                     line-height: {line_height_em}em;
@@ -616,6 +623,7 @@ for file_name in os.listdir(input_dir):
                                     top: {y1 - ye2}px;
                                     font-family: '{family}', serif;
                                     font-weight: {weight_value};
+                                    font-style: {type_font};
                                     font-size: {font_sized}px;
                                     color: rgb{rgb_color};
                                     line-height: {line_height_em}em;
@@ -835,7 +843,7 @@ for file_name in os.listdir(input_dir):
                                     font-size: {font_sized}px;
                                     font-family: '{family}', serif;
                                     font-weight: {weight_value};
-                                    font-style: normal;
+                                    font-style: {type_font};
                                     cursor: pointer; 
                                     color: rgb{rgb_color};
                                     display: inline flex;
@@ -957,7 +965,8 @@ for file_name in os.listdir(input_dir):
             for layer in psd:
                 process_layer(layer, html_content, css_content, content_html_app)
 
-
+            html_content.extend(outerSection.get("shapes", []))
+            html_content.extend(outerSection.get("logo", []))
             content_html_app.extend(sequenceOrder_layer.get("mainHeading", []))
             content_html_app.extend(sequenceOrder_layer.get("subHeading", []))
             content_html_app.extend(sequenceOrder_layer.get("offer", []))
@@ -968,7 +977,6 @@ for file_name in os.listdir(input_dir):
             html_content.extend(content_html_app)
             html_content.append('</div>')
 
-            html_content.extend(outerSection.get("shapes", []))
             html_content.extend(outerSection.get("mainImages", []))
 
             for keyClearOuter in outerSection:
@@ -1008,5 +1016,4 @@ for file_name in os.listdir(input_dir):
 
         except Exception as e:
             print(f"Error processing file '{file_name}': {e}")    
-
             
