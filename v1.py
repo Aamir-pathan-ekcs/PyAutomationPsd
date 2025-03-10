@@ -165,7 +165,9 @@ for file_name in os.listdir(input_dir):
                         image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
                         if cnt == 0:
                             try:
-                                image.save(image_path)
+                                width, height = image.size
+                                image_high = image.resize((width * 2, height * 2), Image.LANCZOS)
+                                image_high.save(image_path)
                                 print(f"Saved image for {layer.name} at {image_path}")
                                 extracted_values['logo_path'] = image_path
                             except Exception as e:
