@@ -6,6 +6,7 @@ import numpy as np
 from psd_tools.psd.engine_data import List
 import math
 from collections import Counter
+import cv2
 
 input_dir = "input"
 if not os.path.exists(input_dir):
@@ -38,6 +39,36 @@ def get_better_color(layer):
 
         except Exception as e:
             return None            
+
+def shape_better_color(layer):
+    if not layer.name.startswith("shape"):
+        return None
+    try:
+        if getattr(layer, "kind", None) in ("shape", "pixel") or hasattr(layer, "getpixel"):
+            if hasattr(layer, "topil"):
+                image = layer.topil().convert("RGBA")
+                pixels = list(image.getdata())
+                
+                if not pixels:
+                    print(f"Layer '{layer.name}' has no pixel data.")
+                    return None
+                opaque_pixels = [p for p in pixels if p[3] > 0] 
+                if not opaque_pixels:
+                    print(f"Layer '{layer.name}' has only transparent pixels: {pixels[:5]}")
+                    return None
+                most_common_color = Counter(opaque_pixels).most_common(1)[0][0]
+                print(f"Most common color in '{layer.name}': {most_common_color}")
+                return most_common_color
+
+            else:
+                raise ValueError("Layer lacks 'topil' method")
+        else:
+            raise ValueError("Unsupported layer kind")
+
+    except Exception as e:
+        print(f"Error processing layer '{layer.name}': {str(e)}")
+        return None
+
 
 def get_layer_color(layer):
     try:
@@ -110,6 +141,7 @@ for file_name in os.listdir(input_dir):
                 height = y2 - y1
                 global xe2, ye2, logo_width, logo_height, logo_x, logo_y
                 checkHtmlContactWrap = checkAppendContactWrap = 1
+                shapeCounts = 1
                 cnt = cnt2 = 0
                 imageLayer = f"sd_img_Image"
                 """Process individual layers and generate HTML/CSS."""
@@ -165,9 +197,7 @@ for file_name in os.listdir(input_dir):
                         image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
                         if cnt == 0:
                             try:
-                                width, height = image.size
-                                image_high = image.resize((width * 2, height * 2), Image.LANCZOS)
-                                image_high.save(image_path)
+                                image.save(image_path)
                                 print(f"Saved image for {layer.name} at {image_path}")
                                 extracted_values['logo_path'] = image_path
                             except Exception as e:
@@ -242,37 +272,262 @@ for file_name in os.listdir(input_dir):
                         print(f"Edge lengths: top={top_edge}, right={right_edge}, bottom={bottom_edge}, left={left_edge}")
                         
                         if abs(top_edge - bottom_edge) < tolerance:
-                            print("Rounded Rectangle Detected")
+                            print("Rounded layerangle Detected")
                             
                             top_bottom_radius = min(top_edge, bottom_edge)
                             return [0, 0, int(top_bottom_radius), int(top_bottom_radius)]
                         
                         print("No rounded corners detected.")
                         return [0, 0, 0, 0]
+
+                    shapeCounts =1
+                    shape_names = ["shape 1", "shape 2", "shape 3", "shape 4", "shape 5", "shape 6"]
+                    for name in shape_names:
+                        if name in layer.name:
+                            print(f"tryyyyy: {name}")
+                            print(f"Current shape count: {shapeCounts}")
+                            outerSection["shapes"].append(f'<div class="shape{shapeCounts} animate_fadeIn delay_0s" id="sd_bgcolor_Shape-{shapeCounts}">')
+                            outerSection["shapes"].append('</div>')
+                            ShapeColor = shape_better_color(layer)
                     
-                    if "shape 1" in layer.name or "shape1" in layer.name:
-                        
-                        outerSection["shapes"].append(f'<div class="shape1 animate_fadeIn delay_0s" id="sd_bgcolor_Shape-1">')
-                        outerSection["shapes"].append('</div>')
-                        ShapeColor = get_layer_color(layer)
+                            if layer.kind == "shape" or hasattr(layer, 'smart_object'):
+                                layer_image = layer.composite()
+                                image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
+                                layer_image.save(image_path)
+                                print(f"Saved shape layer to: {image_path}")
 
-                        if layer.kind == "shape":
-                            if hasattr(layer, "vector_mask") and layer.vector_mask:
-                                vector_mask = layer.vector_mask
-                                print(f"Vector Mask Found: {vector_mask}")
+                                image = cv2.imread(image_path)
+                                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                                edges = cv2.Canny(gray, 50, 150)
+                                contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                        css_content.append(f"""
-                        .shape1 {{
-                            width: {width}px;
-                            height: {height}px;
-                            position: absolute;
-                            left: {x1}px;
-                            top: {y1}px;
-                            background-color: rgb{ShapeColor};
-                            border-radius: {0};
-                           
-                        }}
-                                    """)
+                                for i, contour in enumerate(contours, 1):
+                                    epsilon = 0.02 * cv2.arcLength(contour, True)
+                                    approx = cv2.approxPolyDP(contour, epsilon, True)
+                                    sides = len(approx)
+                                    
+                                    area = cv2.contourArea(contour)
+                                    if area < 100:
+                                        continue
+
+                                    if len(contour) >= 5:
+                                        ellipse = cv2.fitEllipse(contour)
+                                        (center, axes, angle) = ellipse
+                                        aspect_ratio = axes[0] / axes[1] if axes[1] != 0 else 1
+                                        
+                                        if sides == 3:
+                                            shape = "Triangle"
+                                            clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+                                        elif sides == 4:
+                                            shape = "Rectangle"
+                                            clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+                                        elif sides > 8 and 0.95 <= aspect_ratio <= 1.05:
+                                            shape = "Circle"
+                                            clip_path = f"circle({axes[0]/2:.1f}px at {center[0]:.1f}px {center[1]:.1f}px)"
+                                        elif sides > 6 and (aspect_ratio < 0.95 or aspect_ratio > 1.05):
+                                            shape = "Ellipse"
+                                            num_points = 128 
+                                            ellipse_points = []
+                                            angle_rad = math.radians(angle)
+                                            cos_angle = math.cos(angle_rad)
+                                            sin_angle = math.sin(angle_rad)
+                                            a = axes[0] / 2  
+                                            b = axes[1] / 2  
+                                            cx, cy = center
+
+                                            for t in range(num_points):
+                                                theta = 2 * math.pi * t / num_points
+                                                x = cx + a * math.cos(theta) * cos_angle - b * math.sin(theta) * sin_angle
+                                                y = cy + a * math.cos(theta) * sin_angle + b * math.sin(theta) * cos_angle
+                                                ellipse_points.append(f"{x:.2f}px {y:.2f}px")
+                                            
+                                            clip_path = "polygon(" + ", ".join(ellipse_points) + ")"
+                                            css_ellipse = f"ellipse({a:.2f}px {b:.2f}px at {cx:.2f}px {cy:.2f}px) rotate({angle:.2f}deg)"
+                                        else:
+                                            shape = f"Polygon with {sides} sides"
+                                            clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+                                    else:
+                                        shape = f"Polygon with {sides} sides"
+                                        clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+
+                                    # print(f"Detected {shape}")
+                                    # print(f"Clip Path for Shape {i}: {clip_path}")
+                                    if shape == "Ellipse":
+                                        print(f"CSS Ellipse Alternative: {css_ellipse}")
+                                    print(f"Processed: Shape {i}")
+                                    
+                                    cv2.drawContours(image, [approx], -1, (0, 255, 0), 2)
+                                    if 'ellipse' in locals():
+                                        cv2.ellipse(image, ellipse, (255, 0, 0), 2)
+                                os.remove(image_path)
+                                # cv2.imwrite('output_image.jpg', image)
+                                # cv2.waitKey(0)
+                                # cv2.destroyAllWindows()
+                            # else:
+                            #     clip_path = "inherit"
+
+                                    
+                            # layer_image = layer.composite()
+                            # image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
+                            # layer_image.save(image_path)
+                            # print(f"Saved shape layer to: {image_path}")
+
+                            # def extract_clip_path(image_path):
+                            #     image = cv2.imread(image_path)
+                            #     if image is None:
+                            #         print(f"Error: Could not load image at {image_path}")
+                            #         return None
+
+                            #     height, width = image.shape[:2]
+                            #     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                            #     gray = cv2.GaussianBlur(gray, (5, 5), 0)
+                            #     median_intensity = np.median(gray)
+                            #     lower_threshold = int(max(0, 0.66 * median_intensity))
+                            #     upper_threshold = int(min(255, 1.33 * median_intensity))
+                            #     edges = cv2.Canny(gray, lower_threshold, upper_threshold)
+                            #     contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+                            #     padding_x = int(width * 0.05)
+                            #     padding_y = int(height * 0.05)
+
+                            #     if contours:
+                            #         largest_contour = max(contours, key=cv2.contourArea)
+                            #         x, y, w, h = cv2.boundingRect(largest_contour)
+
+                            #         aspect_ratio = w / float(h)
+                            #         area = cv2.contourArea(largest_contour)
+                            #         rect_area = w * h
+                            #         extent = area / float(rect_area)
+
+                            #         if len(largest_contour) >= 5: 
+                            #             ellipse = cv2.fitEllipse(largest_contour)
+                            #             (center_x, center_y), (axis1, axis2), angle = ellipse
+                            #             circle_check = abs(axis1 - axis2) / max(axis1, axis2) < 0.1 
+                            #         else:
+                            #             circle_check = False
+
+                            #         if circle_check:
+                            #             radius = int(min(axis1, axis2) / 2)
+                            #             clip_path = f'circle({int(center_x)}px {int(center_y)}px at {radius}px)'
+                            #         elif 0.9 < extent < 1.1:
+                            #             clip_path = f'polygon({x}px {y}px, {x + w}px {y}px, {x + w}px {y + h}px, {x}px {y + h}px)'
+                            #         else:
+                            #             epsilon = 0.01 * cv2.arcLength(largest_contour, True)
+                            #             approx = cv2.approxPolyDP(largest_contour, epsilon, True)
+                            #             clip_path = 'polygon(' + ', '.join(f'{point[0][0]}px {point[0][1]}px' for point in approx) + ')'
+                            #     else:
+
+                            #         print('No contours found. Using padded rectangular clip-path.')
+                            #         clip_path = f'polygon({padding_x}px {padding_y}px, {width - padding_x}px {padding_y}px, {width - padding_x}px {height - padding_y}px, {padding_x}px {height - padding_y}px)'
+
+                            #     cv2.imwrite('edges_debug.jpg', edges)
+                            #     print('Edge image saved as edges_debug.jpg for debugging')
+
+                            #     os.remove(image_path)
+                            #     print(f'CSS clip-path: {clip_path}')
+                            #     return clip_path
+                                
+                            # getRightPath = extract_clip_path(image_path)    
+                            # print(f"here is right path of shape: {getRightPath}")
+
+
+
+                            # doc_width = psd.width
+                            # doc_height = psd.height
+                            # print(f"PSD size: {doc_width}x{doc_height}px")
+
+                            # def get_shape_points(layer):
+                            #     if layer.kind == 'shape' and hasattr(layer, 'vector_mask') and layer.vector_mask is not None:
+                            #         # Get bounding box
+                            #         bbox = layer.bbox
+                            #         bbox_left, bbox_top, bbox_right, bbox_bottom = bbox
+                            #         bbox_width = bbox_right - bbox_left
+                            #         bbox_height = bbox_bottom - bbox_top
+                            #         print(f"Layer bbox: left={bbox_left}, top={bbox_top}, width={bbox_width}, height={bbox_height}")
+
+                            #         # Get vector mask points
+                            #         vector_mask = layer.vector_mask
+                            #         raw_points = [(knot.anchor[0], knot.anchor[1]) for path in vector_mask.paths for knot in path]
+                            #         print("Raw points:", raw_points)
+
+                            #         # Stretch X to full bbox width
+                            #         min_x_raw = min(x for x, _ in raw_points)
+                            #         max_x_raw = max(x for x, _ in raw_points)
+                            #         x_range_raw = max_x_raw - min_x_raw
+
+                            #         points = []
+                            #         for x, y in raw_points:
+                            #             # Stretch X to full width
+                            #             scaled_x = bbox_left + ((x - min_x_raw) / x_range_raw) * bbox_width
+                            #             # Y: 0 at top (103), 1 at bottom (276)
+                            #             scaled_y = bbox_top + (y * bbox_height)
+                            #             points.append((scaled_x, scaled_y))
+                                    
+                            #         print("Scaled points:", points)
+
+                            #         # For "shape 1", manually adjust to match the image (wider at bottom)
+                            #         if layer.name == "shape 1":
+                            #             # Current points: wider at top, need wider at bottom
+                            #             # Reinterpret points based on image
+                            #             # From image: top narrower, bottom wider
+                            #             top_left_x = bbox_left + ((0.3416 - min_x_raw) / x_range_raw) * bbox_width  # Was at Y=1 (bottom)
+                            #             top_right_x = bbox_left + ((0.1749 - min_x_raw) / x_range_raw) * bbox_width  # Was at Y=1 (bottom)
+                            #             bottom_left_x = bbox_left  # Was at Y=0 (top)
+                            #             bottom_right_x = bbox_right  # Was at Y=0 (top)
+                            #             points = [
+                            #                 (top_left_x, bbox_top),      # Top-left
+                            #                 (bottom_left_x, bbox_bottom), # Bottom-left
+                            #                 (bottom_right_x, bbox_bottom), # Bottom-right
+                            #                 (top_right_x, bbox_top)      # Top-right
+                            #             ]
+                            #             print("Adjusted points for shape 1:", points)
+
+                            #         return points
+                            #     return None
+
+                            # def points_to_clip_path(points):
+                            #     clip_path = "polygon(" + ", ".join(f"{x:.2f}px {y:.2f}px" for x, y in points) + ")"
+                            #     return clip_path
+
+                            # # Process all layers
+                            # points = get_shape_points(layer)
+                            # if points:
+                            #     print(f"\nLayer: {layer.name}")
+                            #     print("Final points:", points)
+                            #     clip_path = points_to_clip_path(points)
+                            #     print("CSS clip-path:", clip_path)
+                            #     min_x = min(p[0] for p in points)
+                            #     max_x = max(p[0] for p in points)
+                            #     print(f"Shape width: {max_x - min_x:.2f}px")
+                            # # Try bounding box if vector mask isn't right
+                            # print("\nUsing bounding box:")
+                            # points = get_shape_points(layer)
+                            # if points:
+                            #     print(f"Layer: {layer.name}")
+                            #     print("Scaled points:", points)
+                            #     clip_path = points_to_clip_path(points)
+                            #     print("CSS clip-path:", clip_path)
+                            #     min_x = min(p[0] for p in points)
+                            #     max_x = max(p[0] for p in points)
+                            #     print(f"Shape width: {max_x - min_x:.2f}px")
+
+                            css_content.append(f"""
+                            .shape{shapeCounts} {{
+                                width: {width - 1 }px;
+                                height: {height - 1}px;
+                                position: absolute;
+                                left: {x1}px;
+                                top: {y1}px;
+                                background-color: rgb{ShapeColor};
+                                border-radius: {0};
+                                clip-path: {clip_path}
+                            
+                            }}
+                                        """)
+
+                        shapeCounts += 1
+
+
 
                     if "contentArea" in layer.name:
                         xe2, ye2 = x1, y1
@@ -799,28 +1054,103 @@ for file_name in os.listdir(input_dir):
 
                                        
                         if "cta" in pp.name:
-                            def calculate_distance(p1, p2, width, height):
-                                x1, y1 = p1[0] * width, p1[1] * height
-                                x2, y2 = p2[0] * width, p2[1] * height
-                                return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-                            canvas_width, canvas_height = psd.width, psd.height
                             if pp.has_vector_mask():
-                                vector_paths = pp.vector_mask.paths
-                                points = [point.anchor for path in vector_paths for point in path]
 
-                                if len(points) >= 4: 
-                                    radius_p = calculate_distance(points[0], points[1], canvas_width, canvas_height)
-                                    if radius_p <= 0:
-                                        radius = radius_p / float(font_sized)
-                                        radius_e = radius
-                                    else:
-                                        radius_e = 0
+                                # def get_border_radius(layer, rendered_width=None, rendered_height=None):
+                                #     if not pp.has_vector_mask():
+                                #         print("No vector mask found")
+                                #         return None
+                                    
+                                #     vector_mask = pp.vector_mask
+                                    
+                                #     width = rendered_width if rendered_width is not None else pp.width
+                                #     height = rendered_height if rendered_height is not None else pp.height
+                                #     # print(f"Using width: {width}px, height: {height}px") print(f"Number of paths: {len(vector_mask.paths)}")
+                                    
+                                #     radii_px = []
+                                    
+                                #     for path in vector_mask.paths:
+                                #         # print(f"Processing path: {path}")print(f"Type of path: {type(path)}")print(f"Number of knots: {len(path)}")
+                                        
+                                #         for i in range(len(path)):
+                                #             knot1 = path[i]
+                                #             knot2 = path[(i + 1) % len(path)] 
+                                #             anchor1 = knot1.anchor
+                                #             anchor2 = knot2.anchor
+                                #             leaving1 = knot1.leaving
+                                #             preceding2 = knot2.preceding
+                                            
+                                #             if leaving1 != anchor1 or preceding2 != anchor2:
+                                #                 print(f"Found curved segment between {anchor1} and {anchor2}")
+                                #                 dx = anchor2[0] - anchor1[0]
+                                #                 dy = anchor2[1] - anchor1[1]
 
-                                    # print(f"Estimated border radius: {radius_e:.2f} pixels")
-                                else:
-                                    radius_e = 0
-                                    # print("Not enough points detected for a rounded rectangle.")
+                                #                 d_px = math.sqrt((dx * width)**2 + (dy * height)**2)
+                                #                 r_px = d_px / math.sqrt(2) 
+                                #                 radii_px.append(r_px)
+                                #             else:
+                                #                 print(f"Straight segment between {anchor1} and {anchor2}")
+                                    
+                                #     if radii_px:
+                                #         avg_radius = sum(radii_px) / len(radii_px)
+                                #         return avg_radius
+                                #     else:
+                                #         print("No curved segments found")
+                                #         return None
+
+                                # rendered_width = psd.width
+                                # rendered_height = psd.height 
+                                # border_radius = get_border_radius(pp, rendered_width=rendered_width, rendered_height=rendered_height)
+                                # if border_radius is not None:
+                                #     print(f"Border Radius: {border_radius:.2f}px")
+                                #     radiusGet = f'{border_radius:.2f}'
+                                #     # base_font_size = 16
+                                #     # rad_em = float(radiusGet) / base_font_size
+                                #     radius_e = radiusGet
+
+                                # vector_maskf = pp.vector_mask
+                                # for subpath in vector_maskf.paths:
+                                #     anchors = [
+                                #         (
+                                #             int(knot.anchor[0] * width),   # Scale X coordinate
+                                #             int(knot.anchor[1] * height)  # Scale Y coordinate
+                                #         )
+                                #         for knot in subpath
+                                #     ]
+                                #     print(f"Anchors for subpath: {anchors}")
+
+                                # Getting path data and radius
+                                # WIDTH_PX = width
+                                # HEIGHT_PX = height
+                                # vector_mask = pp._vector_mask
+                                # vector_data = vector_mask._data
+
+                                # if hasattr(vector_data, 'path'):
+                                #     path_items = vector_data.path._items
+                                #     if len(path_items) > 2:
+                                #         path_points = path_items[2]
+
+                                #         # Calculate radius as the actual distance between control points
+                                #         for i in range(len(path_points) - 1):
+                                #             anchor1 = getattr(path_points[i], 'anchor', None)
+                                #             anchor2 = getattr(path_points[i + 1], 'anchor', None)
+                                #             if anchor1 and anchor2:
+                                #                 # Distance between two anchor points — better for curves
+                                #                 x_diff = abs(anchor2[0] - anchor1[0])
+                                #                 y_diff = abs(anchor2[1] - anchor1[1])
+                                #                 radius_normalized = ((x_diff ** 2 + y_diff ** 2) ** 0.5) / 2
+
+                                #                 # Convert to pixels
+                                #                 border_radius_px = radius_normalized * min(WIDTH_PX, HEIGHT_PX)
+
+                                #                 # Apply scale
+                                #                 scale_factor = 2
+                                #                 border_radius_px_corrected = border_radius_px * scale_factor
+                                #                 print(f"Corrected Border Radius: {border_radius_px_corrected:.2f}px")
+                                #                 break
+
+                                radius_e = 0
                             else:
                                 radius_e = 0
 
