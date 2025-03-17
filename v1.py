@@ -7,6 +7,7 @@ from psd_tools.psd.engine_data import List
 import math
 from collections import Counter
 import cv2
+from math import isclose
 
 input_dir = "input"
 if not os.path.exists(input_dir):
@@ -57,7 +58,7 @@ def shape_better_color(layer):
                     print(f"Layer '{layer.name}' has only transparent pixels: {pixels[:5]}")
                     return None
                 most_common_color = Counter(opaque_pixels).most_common(1)[0][0]
-                print(f"Most common color in '{layer.name}': {most_common_color}")
+                print(f"Most common color in '{layer.name}'")
                 return most_common_color
 
             else:
@@ -101,6 +102,76 @@ def get_text_layer_dimensions(layer):
         width, height = tx2 - tx1, ty2 - ty1 
         return width, height, tx1, ty1
     return None, None, None, None
+
+
+def create_shapes(image_path):
+    try:
+        image = cv2.imread(image_path)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 150)
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for i, contour in enumerate(contours, 1):
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+            sides = len(approx)
+            
+            area = cv2.contourArea(contour)
+            if area < 100:
+                continue
+
+            if len(contour) >= 5:
+                ellipse = cv2.fitEllipse(contour)
+                (center, axes, angle) = ellipse
+                aspect_ratio = axes[0] / axes[1] if axes[1] != 0 else 1
+                
+                if sides == 3:
+                    shape = "Triangle"
+                    clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+                elif sides == 4:
+                    shape = "Rectangle"
+                    clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+                elif sides > 8 and 0.95 <= aspect_ratio <= 1.05:
+                    shape = "Circle"
+                    clip_path = f"circle({axes[0]/2:.1f}px at {center[0]:.1f}px {center[1]:.1f}px)"
+                elif sides > 6 and (aspect_ratio < 0.95 or aspect_ratio > 1.05):
+                    shape = "Ellipse"
+                    num_points = 128 
+                    ellipse_points = []
+                    angle_rad = math.radians(angle)
+                    cos_angle = math.cos(angle_rad)
+                    sin_angle = math.sin(angle_rad)
+                    a = axes[0] / 2  
+                    b = axes[1] / 2  
+                    cx, cy = center
+
+                    for t in range(num_points):
+                        theta = 2 * math.pi * t / num_points
+                        x = cx + a * math.cos(theta) * cos_angle - b * math.sin(theta) * sin_angle
+                        y = cy + a * math.cos(theta) * sin_angle + b * math.sin(theta) * cos_angle
+                        ellipse_points.append(f"{x:.2f}px {y:.2f}px")
+                    
+                    clip_path = "polygon(" + ", ".join(ellipse_points) + ")"
+                    css_ellipse = f"ellipse({a:.2f}px {b:.2f}px at {cx:.2f}px {cy:.2f}px) rotate({angle:.2f}deg)"
+                else:
+                    shape = f"Polygon with {sides} sides"
+                    clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+            else:
+                shape = f"Polygon with {sides} sides"
+                clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+
+            if shape == "Ellipse":
+                print(f"CSS Ellipse Alternative: {css_ellipse}")
+            print(f"Processed: Shape {i}")
+            
+            cv2.drawContours(image, [approx], -1, (0, 255, 0), 2)
+            if 'ellipse' in locals():
+                cv2.ellipse(image, ellipse, (255, 0, 0), 2)
+        os.remove(image_path)
+        return clip_path
+    except Exception as e:
+        print(f"Error in create_shapes for {image_path}: {e}")
+        return None
 
 
 for file_name in os.listdir(input_dir):
@@ -280,12 +351,9 @@ for file_name in os.listdir(input_dir):
                         print("No rounded corners detected.")
                         return [0, 0, 0, 0]
 
-                    shapeCounts =1
                     shape_names = ["shape 1", "shape 2", "shape 3", "shape 4", "shape 5", "shape 6"]
                     for name in shape_names:
                         if name in layer.name:
-                            print(f"tryyyyy: {name}")
-                            print(f"Current shape count: {shapeCounts}")
                             outerSection["shapes"].append(f'<div class="shape{shapeCounts} animate_fadeIn delay_0s" id="sd_bgcolor_Shape-{shapeCounts}">')
                             outerSection["shapes"].append('</div>')
                             ShapeColor = shape_better_color(layer)
@@ -295,71 +363,8 @@ for file_name in os.listdir(input_dir):
                                 image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
                                 layer_image.save(image_path)
                                 print(f"Saved shape layer to: {image_path}")
+                                clip_path = create_shapes(image_path)
 
-                                image = cv2.imread(image_path)
-                                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                                edges = cv2.Canny(gray, 50, 150)
-                                contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-                                for i, contour in enumerate(contours, 1):
-                                    epsilon = 0.02 * cv2.arcLength(contour, True)
-                                    approx = cv2.approxPolyDP(contour, epsilon, True)
-                                    sides = len(approx)
-                                    
-                                    area = cv2.contourArea(contour)
-                                    if area < 100:
-                                        continue
-
-                                    if len(contour) >= 5:
-                                        ellipse = cv2.fitEllipse(contour)
-                                        (center, axes, angle) = ellipse
-                                        aspect_ratio = axes[0] / axes[1] if axes[1] != 0 else 1
-                                        
-                                        if sides == 3:
-                                            shape = "Triangle"
-                                            clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-                                        elif sides == 4:
-                                            shape = "Rectangle"
-                                            clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-                                        elif sides > 8 and 0.95 <= aspect_ratio <= 1.05:
-                                            shape = "Circle"
-                                            clip_path = f"circle({axes[0]/2:.1f}px at {center[0]:.1f}px {center[1]:.1f}px)"
-                                        elif sides > 6 and (aspect_ratio < 0.95 or aspect_ratio > 1.05):
-                                            shape = "Ellipse"
-                                            num_points = 128 
-                                            ellipse_points = []
-                                            angle_rad = math.radians(angle)
-                                            cos_angle = math.cos(angle_rad)
-                                            sin_angle = math.sin(angle_rad)
-                                            a = axes[0] / 2  
-                                            b = axes[1] / 2  
-                                            cx, cy = center
-
-                                            for t in range(num_points):
-                                                theta = 2 * math.pi * t / num_points
-                                                x = cx + a * math.cos(theta) * cos_angle - b * math.sin(theta) * sin_angle
-                                                y = cy + a * math.cos(theta) * sin_angle + b * math.sin(theta) * cos_angle
-                                                ellipse_points.append(f"{x:.2f}px {y:.2f}px")
-                                            
-                                            clip_path = "polygon(" + ", ".join(ellipse_points) + ")"
-                                            css_ellipse = f"ellipse({a:.2f}px {b:.2f}px at {cx:.2f}px {cy:.2f}px) rotate({angle:.2f}deg)"
-                                        else:
-                                            shape = f"Polygon with {sides} sides"
-                                            clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-                                    else:
-                                        shape = f"Polygon with {sides} sides"
-                                        clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-
-                                    # print(f"Detected {shape}")
-                                    # print(f"Clip Path for Shape {i}: {clip_path}")
-                                    if shape == "Ellipse":
-                                        print(f"CSS Ellipse Alternative: {css_ellipse}")
-                                    print(f"Processed: Shape {i}")
-                                    
-                                    cv2.drawContours(image, [approx], -1, (0, 255, 0), 2)
-                                    if 'ellipse' in locals():
-                                        cv2.ellipse(image, ellipse, (255, 0, 0), 2)
-                                os.remove(image_path)
                                 # cv2.imwrite('output_image.jpg', image)
                                 # cv2.waitKey(0)
                                 # cv2.destroyAllWindows()
@@ -579,14 +584,6 @@ for file_name in os.listdir(input_dir):
                         #     continue
                         if hasattr(pp, 'kind') and pp.kind == 'type':
                             print(f"Text layer found: {pp.name}")
-                                                    # if pp.has_vector_mask():
-                        #     print(f"mask {pp.name} has a vector mask")
-                        #     vector_mask = pp.vector_mask()
-                        #     print("Vector mask data:", vector_mask)
-                        #     print(type(vector_mask))  # Debug: Check object type
-                        #     print(dir(vector_mask)) 
-                        #     if vector_mask and hasattr(vector_mask, "paths"):
-                        #         print("Vector mask paths:", vector_mask.paths)
                             if hasattr(pp, 'text') and pp.text:
                                 text_content = pp.text
                                 print(f"Text content found: {text_content}")
@@ -894,7 +891,206 @@ for file_name in os.listdir(input_dir):
                             print(f"Processing hero layer: {layer.name}")
                             cssImage = None
                             check = None
+                                                                # base_image = Image.open(image_path)
+                                    # # Load another image (overlay image) that you want to composite with the base image
+                                    # overlay_image_path = image_path  # Replace with the actual path of your overlay image
+                                    # overlay_image = Image.open(overlay_image_path)
+
+                                    # # Resize overlay image to match the size of the base image
+                                    # overlay_image = overlay_image.resize(base_image.size)
+
+                                    # # Create a new composite image (same size as base image)
+                                    # composite_image = base_image.copy()
+
+                                    # # Paste the overlay image into the composite image, using the overlay image's alpha channel for transparency
+                                    # composite_image.paste(overlay_image, (0, 0), overlay_image)
+
+                                    # # Save the final composite image
+                                    # composite_image_path = f"output/{file_name_t}/images/composite_{child_layer.name}.png"
+                                    # composite_image.save(composite_image_path)
+
+                                    # # Print the saved composite image path
+                                    # print(f"Composite image saved to: {composite_image_path}")
+
+                                    # time.sleep(0.1)
+                            clip_paths = []
                             for idx, child_layer in enumerate(reversed(layer)):
+                                if "imageWrap" in child_layer.name:
+                                    clip_path = None
+                                    wrapp_image = None
+                                    try:
+                                        wrapp_image = child_layer.topil()
+                                        if wrapp_image is None:
+                                            raise ValueError("topil() returned None")
+                                        elif not isinstance(wrapp_image, Image.Image):
+                                            raise TypeError(f"topil() returned invalid type: {type(wrapp_image)}")
+                                    except Exception as e:
+                                        print(f"topil() failed: {e}")
+                                        clip_path = "inherit"
+
+                                    if wrapp_image:
+                                        image_path = f"output/{file_name_t}/images/{child_layer.name}.png"
+                                        os.makedirs(os.path.dirname(image_path), exist_ok=True)
+                                        try:
+                                            wrapp_image.save(image_path, "PNG")
+                                            file_size = os.path.getsize(image_path)
+                                            print(f"Saved image to {image_path} (Size: {file_size} bytes)")
+                                        except Exception as e:
+                                            print(f"Failed to save image to {image_path}: {e}")
+                                            clip_path = "inherit"
+                                            image_path = None
+
+                                        if image_path:
+                                            try:
+                                                image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+                                                if image is None:
+                                                    raise FileNotFoundError(f"cv2.imread failed to load {image_path}")
+
+                                                if image.shape[2] == 4:
+                                                    b, g, r, alpha = cv2.split(image)
+                                                    gray = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
+
+                                                    if gray.min() == gray.max():
+                                                        print("Grayscale is uniform, using alpha channel or enhancing contrast")
+                                                        if alpha.min() != alpha.max():
+                                                            gray = alpha
+                                                        else:
+                                                            gray = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
+
+                                                gray = cv2.GaussianBlur(gray, (3, 3), 0)
+                                                print(f"Applied Gaussian blur to grayscale")
+
+                                                edges = cv2.Canny(gray, 10, 50)
+                                                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                                                edges = cv2.dilate(edges, kernel, iterations=1)
+                                                edges = cv2.erode(edges, kernel, iterations=1)
+                                                cv2.imwrite(f"output/{file_name_t}/images/{child_layer.name}_edges.png", edges)
+
+                                                contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                                                print(f"Found {len(contours)} contours")
+
+                                                if not contours:
+                                                    print(f"No contours found. Check saved edges image: {child_layer.name}_edges.png")
+                                                else:
+                                                    for i, contour in enumerate(contours, 1):
+                                                        epsilon = 0.005 * cv2.arcLength(contour, True) 
+                                                        approx = cv2.approxPolyDP(contour, epsilon, True)
+                                                        sides = len(approx)
+                                                        
+                                                        area = cv2.contourArea(contour)
+                                                        if area < 100:
+                                                            print(f"Skipping contour {i} (area < 100)")
+                                                            continue
+
+                                                        if len(contour) >= 5:
+                                                            ellipse = cv2.fitEllipse(contour)
+                                                            (center, axes, angle) = ellipse
+                                                            aspect_ratio = axes[0] / axes[1] if axes[1] != 0 else 1
+                                                            
+                                                            if sides == 3:
+                                                                shape = "Triangle"
+                                                                clip_path = "polygon(" + ", ".join(f"{p[0][0]:.1f}px {p[0][1]:.1f}px" for p in approx) + ")"
+                                                            elif sides == 4:
+                                                                shape = "Rectangle"
+                                                                clip_path = "polygon(" + ", ".join(f"{p[0][0]:.1f}px {p[0][1]:.1f}px" for p in approx) + ")"
+                                                            elif sides > 8 and 0.95 <= aspect_ratio <= 1.05:
+                                                                shape = "Circle"
+                                                                clip_path = f"circle({axes[0]/2:.1f}px at {center[0]:.1f}px {center[1]:.1f}px)"
+                                                            elif sides > 6 and (aspect_ratio < 0.95 or aspect_ratio > 1.05):
+                                                                shape = "Ellipse"
+                                                                num_points = 256 
+                                                                ellipse_points = []
+                                                                angle_rad = math.radians(angle)
+                                                                cos_angle = math.cos(angle_rad)
+                                                                sin_angle = math.sin(angle_rad)
+                                                                a = axes[0] / 2  
+                                                                b = axes[1] / 2  
+                                                                cx, cy = center
+
+                                                                for t in range(num_points):
+                                                                    theta = 2 * math.pi * t / num_points
+                                                                    x = cx + a * math.cos(theta) * cos_angle - b * math.sin(theta) * sin_angle
+                                                                    y = cy + a * math.cos(theta) * sin_angle + b * math.sin(theta) * cos_angle
+                                                                    ellipse_points.append(f"{x:.1f}px {y:.1f}px")
+                                                                
+                                                                clip_path = "polygon(" + ", ".join(ellipse_points) + ")"
+                                                                css_ellipse = f"ellipse({a:.1f}px {b:.1f}px at {cx:.1f}px {cy:.1f}px) rotate({angle:.1f}deg)"
+                                                            else:
+                                                                shape = f"Polygon with {sides} sides"
+                                                                clip_path = "polygon(" + ", ".join(f"{p[0][0]:.1f}px {p[0][1]:.1f}px" for p in approx) + ")"
+                                                        else:
+                                                            shape = f"Polygon with {sides} sides"
+                                                            clip_path = "polygon(" + ", ".join(f"{p[0][0]:.1f}px {p[0][1]:.1f}px" for p in approx) + ")"
+
+                                                        if shape == "Ellipse":
+                                                            print(f"CSS Ellipse Alternative: {css_ellipse}")
+                                                        print(f"Processed: Shape {i}, Clip-path:")
+                                                        
+                                                        cv2.drawContours(image, [approx], -1, (0, 255, 0), 2)
+                                                        if 'ellipse' in locals():
+                                                            cv2.ellipse(image, ellipse, (255, 0, 0), 2)
+                                                    cv2.imwrite(f"output/{file_name_t}/images/{child_layer.name}_contours.png", image)
+                                                    print(f"Saved annotated image: {child_layer.name}_contours.png")
+                                            except Exception as e:
+                                                print(f"Error in create_shapes for {image_path}: {e}")
+                                                clip_path = "inherit"
+  
+                                    coords = re.findall(r"([\d.-]+)px\s+([\d.-]+)px", clip_path)
+                                    points = [(float(x), float(y)) for x, y in coords]
+
+                                    def analyze_and_simplify_clip_path(points, threshold=16, tolerance=0.05, min_polygon_points=8):
+                                        if len(points) <= threshold:
+                                            return "polygon(" + ", ".join(f"{x:.1f}px {y:.1f}px" for x, y in points) + ")", "polygon"
+
+                                        x_coords, y_coords = zip(*points) 
+                                        min_x, max_x = min(x_coords), max(x_coords)
+                                        min_y, max_y = min(y_coords), max(y_coords)
+
+                                        width = max_x - min_x
+                                        height = max_y - min_y
+                                        center_x = (min_x + max_x) / 2
+                                        center_y = (min_y + max_y) / 2
+
+                                        aspect_ratio = width / height if height != 0 else 1
+                                        if isclose(aspect_ratio, 1, rel_tol=tolerance):
+                                            radius = (width + height) / 4 
+                                            return f"circle({radius:.1f}px at {center_x:.1f}px {center_y:.1f}px)", "circle"
+
+                                        def is_rectangle(points, min_x, max_x, min_y, max_y, tolerance):
+                                            near_left = sum(1 for x, _ in points if isclose(x, min_x, abs_tol=tolerance * width))
+                                            near_right = sum(1 for x, _ in points if isclose(x, max_x, abs_tol=tolerance * width))
+                                            near_top = sum(1 for _, y in points if isclose(y, min_y, abs_tol=tolerance * height))
+                                            near_bottom = sum(1 for _, y in points if isclose(y, max_y, abs_tol=tolerance * height))
+                                            total_points = len(points)
+                                            return (near_left + near_right + near_top + near_bottom) > total_points * 0.8
+
+                                        if is_rectangle(points, min_x, max_x, min_y, max_y, tolerance):
+                                            return f"polygon({min_x:.1f}px {min_y:.1f}px, {max_x:.1f}px {min_y:.1f}px, {max_x:.1f}px {max_y:.1f}px, {min_x:.1f}px {max_y:.1f}px)", "rectangle"
+
+                                        radius_x = width / 2
+                                        radius_y = height / 2
+                                        if radius_x > 0 and radius_y > 0:
+                                            return f"ellipse({radius_x:.1f}px {radius_y:.1f}px at {center_x:.1f}px {center_y:.1f}px)", "ellipse"
+
+                                        step = max(1, len(points) // min_polygon_points)
+                                        reduced_points = [points[i * step] for i in range(min_polygon_points)]
+                                        return "polygon(" + ", ".join(f"{x:.1f}px {y:.1f}px" for x, y in reduced_points) + ")", "polygon"
+
+                                    simplified_clip_path, shape_type = analyze_and_simplify_clip_path(points, threshold=16)
+                                    # print(f"Simplified clip-path ({shape_type}): {simplified_clip_path}")
+                                    if simplified_clip_path: 
+                                        clip_path = simplified_clip_path
+                                    file_path_r = [
+                                        image_path,
+                                        f"output/{file_name_t}/images/{child_layer.name}_edges.png",
+                                        f"output/{file_name_t}/images/{child_layer.name}_contours.png"   
+                                    ] 
+                                    for path_r in file_path_r:
+                                        os.remove(path_r)
+                                    # if clip_path:
+                                    #     print(f"wrapped: {clip_path}")
+                                    # else:
+                                    #     clip_path = 'inherit'    
                                 if "imageWrap1" in child_layer.name or "imageWrap" in child_layer.name or "imageBorder" in child_layer.name:
                                     print(f"skipping shape: {child_layer.name}")
                                     check = child_layer.name
@@ -959,6 +1155,7 @@ for file_name in os.listdir(input_dir):
                                         top: {y1}px;
                                         z-index: 1;
                                         overflow: hidden;
+                                        clip-path: {clip_path}
                                     }}
                                     .imageBox{cssImage} img {{
                                         width: {width-3}px;
