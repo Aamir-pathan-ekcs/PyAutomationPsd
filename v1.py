@@ -103,134 +103,45 @@ def get_text_layer_dimensions(layer):
         return width, height, tx1, ty1
     return None, None, None, None
 
-def create_shapes(image_path):
-    try:
-        image = cv2.imread(image_path)
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 50, 150)
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        for i, contour in enumerate(contours, 1):
-            epsilon = 0.02 * cv2.arcLength(contour, True)
-            approx = cv2.approxPolyDP(contour, epsilon, True)
-            sides = len(approx)
-            
-            area = cv2.contourArea(contour)
-            if area < 100:
-                continue
-
-            if len(contour) >= 5:
-                ellipse = cv2.fitEllipse(contour)
-                (center, axes, angle) = ellipse
-                aspect_ratio = axes[0] / axes[1] if axes[1] != 0 else 1
-                
-                if sides == 3:
-                    shape = "Triangle"
-                    clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-                elif sides == 4:
-                    shape = "Rectangle"
-                    clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-                elif sides > 8 and 0.95 <= aspect_ratio <= 1.05:
-                    shape = "Circle"
-                    clip_path = f"circle({axes[0]/2:.1f}px at {center[0]:.1f}px {center[1]:.1f}px)"
-                elif sides > 6 and (aspect_ratio < 0.95 or aspect_ratio > 1.05):
-                    shape = "Ellipse"
-                    num_points = 128 
-                    ellipse_points = []
-                    angle_rad = math.radians(angle)
-                    cos_angle = math.cos(angle_rad)
-                    sin_angle = math.sin(angle_rad)
-                    a = axes[0] / 2  
-                    b = axes[1] / 2  
-                    cx, cy = center
-
-                    for t in range(num_points):
-                        theta = 2 * math.pi * t / num_points
-                        x = cx + a * math.cos(theta) * cos_angle - b * math.sin(theta) * sin_angle
-                        y = cy + a * math.cos(theta) * sin_angle + b * math.sin(theta) * cos_angle
-                        ellipse_points.append(f"{x:.2f}px {y:.2f}px")
-                    
-                    clip_path = "polygon(" + ", ".join(ellipse_points) + ")"
-                    css_ellipse = f"ellipse({a:.2f}px {b:.2f}px at {cx:.2f}px {cy:.2f}px) rotate({angle:.2f}deg)"
-                else:
-                    shape = f"Polygon with {sides} sides"
-                    clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-            else:
-                shape = f"Polygon with {sides} sides"
-                clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-
-            if shape == "Ellipse":
-                print(f"CSS Ellipse Alternative: {css_ellipse}")
-            print(f"Processed: Shape {i}")
-            
-            cv2.drawContours(image, [approx], -1, (0, 255, 0), 2)
-            if 'ellipse' in locals():
-                cv2.ellipse(image, ellipse, (255, 0, 0), 2)
-        os.remove(image_path)
-        return clip_path
-    except Exception as e:
-        print(f"Error in create_shapes for {image_path}: {e}")
-        return None
-
-
 # def create_shapes(image_path):
 #     try:
 #         image = cv2.imread(image_path)
 #         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-#         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-#         edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-#                                       cv2.THRESH_BINARY, 11, 2)
-#         edges = cv2.Canny(edges, 50, 150)
-        
-#         kernel = np.ones((3, 3), np.uint8)
-#         edges = cv2.dilate(edges, kernel, iterations=1)
-        
+#         edges = cv2.Canny(gray, 50, 150)
 #         contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-#         clip_paths = []
 #         for i, contour in enumerate(contours, 1):
-#             area = cv2.contourArea(contour)
-#             perimeter = cv2.arcLength(contour, True)
-#             if area < 500: 
-#                 continue
-
-#             epsilon = 0.015 * perimeter 
+#             epsilon = 0.02 * cv2.arcLength(contour, True)
 #             approx = cv2.approxPolyDP(contour, epsilon, True)
 #             sides = len(approx)
+            
+#             area = cv2.contourArea(contour)
+#             if area < 100:
+#                 continue
 
-#             # print(f"Contour {i}: Area={area}, Perimeter={perimeter}, Sides={sides}") done
-
-#             shape = "Unknown"
-#             clip_path = ""
-
-#             if sides == 3:
-#                 x, y, w, h = cv2.boundingRect(contour)
-#                 aspect_ratio = w / h if h != 0 else 1
-#                 if aspect_ratio < 0.5: 
-#                     shape = "Slanted Triangle"
-#                 else:
-#                     shape = "Triangle"
-#                 clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-
-#             elif sides == 4:
-#                 shape = "Rectangle"
-#                 clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
-
-#             elif sides > 8:
-#                 (center, axes, angle) = cv2.fitEllipse(contour)
+#             if len(contour) >= 5:
+#                 ellipse = cv2.fitEllipse(contour)
+#                 (center, axes, angle) = ellipse
 #                 aspect_ratio = axes[0] / axes[1] if axes[1] != 0 else 1
-#                 if 0.95 <= aspect_ratio <= 1.05:
+                
+#                 if sides == 3:
+#                     shape = "Triangle"
+#                     clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+#                 elif sides == 4:
+#                     shape = "Rectangle"
+#                     clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+#                 elif sides > 8 and 0.95 <= aspect_ratio <= 1.05:
 #                     shape = "Circle"
 #                     clip_path = f"circle({axes[0]/2:.1f}px at {center[0]:.1f}px {center[1]:.1f}px)"
-#                 else:
+#                 elif sides > 6 and (aspect_ratio < 0.95 or aspect_ratio > 1.05):
 #                     shape = "Ellipse"
-#                     num_points = 100
+#                     num_points = 128 
 #                     ellipse_points = []
 #                     angle_rad = math.radians(angle)
 #                     cos_angle = math.cos(angle_rad)
 #                     sin_angle = math.sin(angle_rad)
-#                     a, b = axes[0] / 2, axes[1] / 2
+#                     a = axes[0] / 2  
+#                     b = axes[1] / 2  
 #                     cx, cy = center
 
 #                     for t in range(num_points):
@@ -238,27 +149,162 @@ def create_shapes(image_path):
 #                         x = cx + a * math.cos(theta) * cos_angle - b * math.sin(theta) * sin_angle
 #                         y = cy + a * math.cos(theta) * sin_angle + b * math.sin(theta) * cos_angle
 #                         ellipse_points.append(f"{x:.2f}px {y:.2f}px")
-
+                    
 #                     clip_path = "polygon(" + ", ".join(ellipse_points) + ")"
+#                     css_ellipse = f"ellipse({a:.2f}px {b:.2f}px at {cx:.2f}px {cy:.2f}px) rotate({angle:.2f}deg)"
+#                 else:
+#                     shape = f"Polygon with {sides} sides"
+#                     clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
 #             else:
 #                 shape = f"Polygon with {sides} sides"
 #                 clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
 
-#             print(f"Processed: Shape {i} - {shape}")
-#             clip_paths.append(clip_path.strip("[]'"))
+#             if shape == "Ellipse":
+#                 print(f"CSS Ellipse Alternative: {css_ellipse}")
+#             print(f"Processed: Shape {i}")
+            
 #             cv2.drawContours(image, [approx], -1, (0, 255, 0), 2)
-
+#             if 'ellipse' in locals():
+#                 cv2.ellipse(image, ellipse, (255, 0, 0), 2)
 #         os.remove(image_path)
-#         return clip_paths[0] if clip_paths else None
+#         return clip_path
 #     except Exception as e:
 #         print(f"Error in create_shapes for {image_path}: {e}")
 #         return None
+
+
+def create_shapes(image_path):
+    try:
+        image = cv2.imread(image_path)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                      cv2.THRESH_BINARY, 11, 2)
+        edges = cv2.Canny(edges, 50, 150)
+        
+        kernel = np.ones((3, 3), np.uint8)
+        edges = cv2.dilate(edges, kernel, iterations=1)
+        
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        clip_paths = []
+        for i, contour in enumerate(contours, 1):
+            area = cv2.contourArea(contour)
+            perimeter = cv2.arcLength(contour, True)
+            if area < 500: 
+                continue
+
+            epsilon = 0.015 * perimeter 
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+            sides = len(approx)
+
+            # print(f"Contour {i}: Area={area}, Perimeter={perimeter}, Sides={sides}") done
+
+            shape = "Unknown"
+            clip_path = ""
+
+            if sides == 3:
+                x, y, w, h = cv2.boundingRect(contour)
+                aspect_ratio = w / h if h != 0 else 1
+                if aspect_ratio < 0.5: 
+                    shape = "Slanted Triangle"
+                else:
+                    shape = "Triangle"
+                clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+
+            elif sides == 4:
+                shape = "Rectangle"
+                clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+
+            elif sides > 8:
+                (center, axes, angle) = cv2.fitEllipse(contour)
+                aspect_ratio = axes[0] / axes[1] if axes[1] != 0 else 1
+                if 0.95 <= aspect_ratio <= 1.05:
+                    shape = "Circle"
+                    clip_path = f"circle({axes[0]/2:.1f}px at {center[0]:.1f}px {center[1]:.1f}px)"
+                else:
+                    shape = "Ellipse"
+                    num_points = 100
+                    ellipse_points = []
+                    angle_rad = math.radians(angle)
+                    cos_angle = math.cos(angle_rad)
+                    sin_angle = math.sin(angle_rad)
+                    a, b = axes[0] / 2, axes[1] / 2
+                    cx, cy = center
+
+                    for t in range(num_points):
+                        theta = 2 * math.pi * t / num_points
+                        x = cx + a * math.cos(theta) * cos_angle - b * math.sin(theta) * sin_angle
+                        y = cy + a * math.cos(theta) * sin_angle + b * math.sin(theta) * cos_angle
+                        ellipse_points.append(f"{x:.2f}px {y:.2f}px")
+
+                    clip_path = "polygon(" + ", ".join(ellipse_points) + ")"
+            else:
+                shape = f"Polygon with {sides} sides"
+                clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+
+            print(f"Processed: Shape {i} - {shape}")
+            clip_paths.append(clip_path.strip("[]'"))
+            cv2.drawContours(image, [approx], -1, (0, 255, 0), 2)
+
+        os.remove(image_path)
+        return clip_paths[0] if clip_paths else None
+    except Exception as e:
+        print(f"Error in create_shapes for {image_path}: {e}")
+        return None
+
+
+
+
+
+
+def rgba_to_rgb(rgba_values):
+    if not rgba_values or len(rgba_values) < 3:
+        return None
+    r = int(rgba_values[1] * 255)
+    g = int(rgba_values[2] * 255)
+    b = int(rgba_values[3] * 255)
+    return (r, g, b)
+
+def extract_font_weight(font_name):
+    font_weights = {
+        'Thin': '100',
+        'ExtraLight': '200',
+        'Light': '300',
+        'Regular': '400',
+        'Normal': '400',
+        'Medium': '500',
+        'SemiBold': '600',
+        'Bold': '700',
+        'ExtraBold': '800',
+        'Black': '900',
+    }
+
+    font_name = font_name.strip().strip("'\"")
+    font_name = font_name.replace("\xa0", " ")
+    font_name = font_name.encode("ascii", "ignore").decode()
+    
+    match = re.match(r'^(.*?)[-_ ]?(Thin|ExtraLight|Light|Regular|Normal|Medium|SemiBold|Bold|ExtraBold|Black)?(Italic)?$', font_name, re.IGNORECASE)
+    if match:
+        font_family = match.group(1).replace("Roman", "").strip()
+        fontWt = match.group(2) if match.group(2) else "Regular"
+        italic_w = match.group(3) if match.group(3) else "normal"
+        italic_wd = italic_w.lower() 
+    else:
+        font_family = font_name
+        fontWt = "Regular"
+    
+    fontWt = fontWt[0].upper() + fontWt[1:] if fontWt.lower() != "regular" else "Regular"
+    fontGetWeight = font_weights.get(fontWt, '400')
+    return font_family, fontWt, fontGetWeight, italic_wd
+
 
  
 def broder_radius_get(shape, child_layer):
     radii = getattr(shape, 'radii', None)
     if radii:
-        print(f"child_layer '{child_layer.name}' has border radius: {radii}")
+        # print(f"child_layer '{child_layer.name}' has border radius: {radii}")
         top_left = radii.get(b'topLeft', 0.0)
         top_right = radii.get(b'topRight', 0.0)
         bottom_right = radii.get(b'bottomRight', 0.0)
@@ -355,61 +401,6 @@ for file_name in os.listdir(input_dir):
                             logo_processed = True
                             print(f"Processed Logo: {sanitized_name}")
 
-                    
-                    def extract_corner_points(layer):
-                        """Extract corner points from a shape layer."""
-                        if hasattr(layer, 'vector_mask') and layer.vector_mask:
-                            vector_mask = layer.vector_mask
-                            paths = vector_mask.paths
-                            
-                            if len(paths) > 0:
-                                path = paths[0] 
-                                points = []
-                                
-                                for knot in path:
-                                    points.append(knot.anchor) 
-                                
-                                return points 
-                        return None
-
-                    def get_layer_effects(layer):
-                        """Extract layer effects (like stroke) that could influence the border radius."""
-                        if hasattr(layer, 'effects'):
-                            effects = layer.effects
-                            for effect in effects:
-                                if effect.type == 'stroke':
-                                    return effect
-                        return None
-
-                    def estimate_border_radius(corner_points, width, height, tolerance=5):
-                        """Estimate the border radius based on the corner points with tolerance."""
-                        if len(corner_points) != 4:
-                            print("Error: Expected 4 corner points.")
-                            return [0, 0, 0, 0]                        
-                        (x1, y1), (x2, y2), (x3, y3), (x4, y4) = corner_points
-
-                        x1, y1 = x1 * width, y1 * height
-                        x2, y2 = x2 * width, y2 * height
-                        x3, y3 = x3 * width, y3 * height
-                        x4, y4 = x4 * width, y4 * height
-                        
-                        print(f"Scaled Coordinates: TL({x1}, {y1}), TR({x2}, {y2}), BR({x3}, {y3}), BL({x4}, {y4})")
-                        
-                        top_edge = math.dist((x1, y1), (x2, y2))  
-                        right_edge = math.dist((x2, y2), (x3, y3))  
-                        bottom_edge = math.dist((x3, y3), (x4, y4)) 
-                        left_edge = math.dist((x4, y4), (x1, y1)) 
-                        
-                        print(f"Edge lengths: top={top_edge}, right={right_edge}, bottom={bottom_edge}, left={left_edge}")
-                        
-                        if abs(top_edge - bottom_edge) < tolerance:
-                            print("Rounded layerangle Detected")
-                            
-                            top_bottom_radius = min(top_edge, bottom_edge)
-                            return [0, 0, int(top_bottom_radius), int(top_bottom_radius)]
-                        
-                        print("No rounded corners detected.")
-                        return [0, 0, 0, 0]
 
                     shape_names = ["shape 1", "shape 2", "shape 3", "shape 4", "shape 5", "shape 6"]
                     for name in shape_names:
@@ -673,38 +664,47 @@ for file_name in os.listdir(input_dir):
                                             effective_font_size = (scaled_font_size_x + scaled_font_size_y) / 2 * empirical_factor
                                             font_sized = f'{scaled_font_size_x:.2f}'
                                             
+                                            line_height_font = engine_data['StyleRun'].get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {}).get('Leading', None)
+                                            # print(engine_data['StyleRun'].get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {}))
+                                            # print(f"checking of this : {line_height_font}")
+                                            if float(font_size_points) * 1.2 < line_height_font: 
+                                                line_height_points = font_size_points * 1.2
+                                            else:
+                                                line_height_points = line_height_font
 
-                                            # print(engine_data['StyleRun'].get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {})).get("")
-                                            # style = layer.engine_dict['StyleRun']['RunArray'][0]['StyleSheet']['StyleSheetData']
-                                            # line_height = style.get('Leading', None)  # Extract line height
+                                            line_height_pixels = line_height_points * (dpi / 72)
+                                            scaled_line_height_x_line = line_height_pixels * scaling_factor_x
+                                            scaled_line_height_y_line = line_height_pixels * scaling_factor_y
+                                            effective_line_height = (scaled_line_height_x_line + scaled_line_height_y_line) / 2 * empirical_factor
 
-                                            LineHeightstyle_data = engine_data['StyleRun'].get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {})
-                                            line_height = LineHeightstyle_data.get('Leading', None)
-                                            # print(f"line height data {LineHeightstyle_data}")
-                                            try:
-                                                line_height = float(line_height) if line_height and isinstance(line_height, (int, float, str)) and str(line_height).replace('.', '', 1).isdigit() else None
-                                            except (ValueError, TypeError):
-                                                line_height = None
+                                            line_height_get = f'{scaled_line_height_x_line:.2f}' 
+                                            line_height_convert = float(line_height_get) / float(font_sized)
+                                            line_height_em = round(line_height_convert, 2)
 
-                                            if not line_height or line_height == 0:
-                                                line_height = float(font_sized) * (1.0 if float(font_sized) < 20 else 1.2)
+                                            # LineHeightstyle_data = engine_data['StyleRun'].get('RunArray', [{}])[0].get('StyleSheet', {}).get('StyleSheetData', {})
+                                            # line_height = LineHeightstyle_data.get('Leading', None)
+                                            # # print(f"line height data {LineHeightstyle_data}")
+                                            # try:
+                                            #     line_height = float(line_height) if line_height and isinstance(line_height, (int, float, str)) and str(line_height).replace('.', '', 1).isdigit() else None
+                                            # except (ValueError, TypeError):
+                                            #     line_height = None
 
-                                            VScaling_factor_y = transform_matrix[3] if transform_matrix[3] != 0 else 1
+                                            # if not line_height or line_height == 0:
+                                            #     line_height = float(font_sized) * (1.0 if float(font_sized) < 20 else 1.2)
 
-                                            max_scaling = 0.81 if float(font_sized) < 20 else 0.835
-                                            VScaling_factor_y = min(VScaling_factor_y, max_scaling)
+                                            # VScaling_factor_y = transform_matrix[3] if transform_matrix[3] != 0 else 1
 
-                                            line_height_pixels = line_height * (dpi / 72)
-                                            scaled_line_height = line_height_pixels * VScaling_factor_y
-                                            scaled_line_height = max(scaled_line_height, float(font_sized) * 1.0)
-                                            line_height_em = scaled_line_height / float(font_sized)
+                                            # max_scaling = 0.81 if float(font_sized) < 20 else 0.835
+                                            # VScaling_factor_y = min(VScaling_factor_y, max_scaling)
+
+                                            # line_height_pixels = line_height * (dpi / 72)
+                                            # scaled_line_height = line_height_pixels * VScaling_factor_y
+                                            # scaled_line_height = max(scaled_line_height, float(font_sized) * 1.0)
+                                            # line_height_em = scaled_line_height / float(font_sized)
 
                                             # print(f"DEBUG: Font Size: {font_sized}, Raw Leading: {line_height}, "
-                                            #     f"Scaled X: {scaled_line_height_x}, Scaled Y: {scaled_line_height_y}, Line Height EM: {line_height_em:.3f}")
+                                            # f"Scaled X: {scaled_line_height_x}, Scaled Y: {scaled_line_height_y}, Line Height EM: {line_height_em:.3f}")
                                             # print(f"Layer: {pp.name}, Line Height: {effective_line_height:.5f} px, {line_height_em:.3f} em")
-
-
-
                                         
                                         if 'StyleRun' in engine_data:
                                             center = pp.engine_dict['StyleRun']
@@ -729,14 +729,6 @@ for file_name in os.listdir(input_dir):
                                                 text_content
 
 
-                                            def rgba_to_rgb(rgba_values):
-                                                if not rgba_values or len(rgba_values) < 3:
-                                                    return None
-                                                r = int(rgba_values[1] * 255)
-                                                g = int(rgba_values[2] * 255)
-                                                b = int(rgba_values[3] * 255)
-                                                return (r, g, b)
-
                                             centers = pp.engine_dict.get('StyleRun', {})
                                             run_array = centers.get('RunArray', [{}])
                                             fill_color = run_array[0].get('StyleSheet', {}).get('StyleSheetData', {}).get('FillColor', {}).get('Values', None)
@@ -749,37 +741,6 @@ for file_name in os.listdir(input_dir):
                                             rgb_color = rgb_fill
 
                                             # fontset = pp.resource_dict['FontSet']
-                                            def extract_font_weight(font_name):
-                                                font_weights = {
-                                                    'Thin': '100',
-                                                    'ExtraLight': '200',
-                                                    'Light': '300',
-                                                    'Regular': '400',
-                                                    'Normal': '400',
-                                                    'Medium': '500',
-                                                    'SemiBold': '600',
-                                                    'Bold': '700',
-                                                    'ExtraBold': '800',
-                                                    'Black': '900',
-                                                }
-
-                                                font_name = font_name.strip().strip("'\"")
-                                                font_name = font_name.replace("\xa0", " ")
-                                                font_name = font_name.encode("ascii", "ignore").decode()
-                                                
-                                                match = re.match(r'^(.*?)[-_ ]?(Thin|ExtraLight|Light|Regular|Normal|Medium|SemiBold|Bold|ExtraBold|Black)?(Italic)?$', font_name, re.IGNORECASE)
-                                                if match:
-                                                    font_family = match.group(1).replace("Roman", "").strip()
-                                                    fontWt = match.group(2) if match.group(2) else "Regular"
-                                                    italic_w = match.group(3) if match.group(3) else "normal"
-                                                    italic_wd = italic_w.lower() 
-                                                else:
-                                                    font_family = font_name
-                                                    fontWt = "Regular"
-                                                
-                                                fontWt = fontWt[0].upper() + fontWt[1:] if fontWt.lower() != "regular" else "Regular"
-                                                fontGetWeight = font_weights.get(fontWt, '400')
-                                                return font_family, fontWt, fontGetWeight, italic_wd
 
                                             fontset = pp.resource_dict['FontSet']
                                             fontsGet = str(fontset[0]['Name']).strip("'\"")
@@ -959,7 +920,7 @@ for file_name in os.listdir(input_dir):
                             print(f"Processing hero layer: {layer.name}")
                             cssImage = None
                             check = None
-                                                                # base_image = Image.open(image_path)
+                                    # base_image = Image.open(image_path)
                                     # # Load another image (overlay image) that you want to composite with the base image
                                     # overlay_image_path = image_path  # Replace with the actual path of your overlay image
                                     # overlay_image = Image.open(overlay_image_path)
