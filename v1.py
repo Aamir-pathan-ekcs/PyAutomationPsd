@@ -248,14 +248,10 @@ def create_shapes(image_path):
             clip_paths.append(clip_path.strip("[]'"))
             cv2.drawContours(image, [approx], -1, (0, 255, 0), 2)
 
-        os.remove(image_path)
         return clip_paths[0] if clip_paths else None
     except Exception as e:
         print(f"Error in create_shapes for {image_path}: {e}")
         return None
-
-
-
 
 
 
@@ -371,6 +367,11 @@ for file_name in os.listdir(input_dir):
                         return
 
                     if "logo" in layer.name:
+                        if (width_psd, height_psd) in need_valid_sizes:
+                            logo_adjust = "center"
+                        else: 
+                            logo_adjust = "flex-start"
+                            
                         image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
                         if cnt == 0:
                             try:
@@ -391,7 +392,7 @@ for file_name in os.listdir(input_dir):
                                 top: {logo_y}px;
                                 display: flex;
                                 align-items: center;
-                                justify-content: flex-start;
+                                justify-content: {logo_adjust};
                             }}
                             .logo img{{
                                 max-width: {logo_width -3}px;
@@ -423,6 +424,7 @@ for file_name in os.listdir(input_dir):
                                         else:
                                             clip_path = create_shapes(image_path)
 
+                                os.remove(image_path)
                                 # cv2.imwrite('output_image.jpg', image)
                                 # cv2.waitKey(0)
                                 # cv2.destroyAllWindows()
@@ -644,7 +646,7 @@ for file_name in os.listdir(input_dir):
                         if hasattr(pp, 'kind') and pp.kind == 'type':
                             print(f"Text layer found: {pp.name}")
                             if hasattr(pp, 'text') and pp.text:
-                                text_content = pp.text
+                                text_content = pp.text.replace('', ' ')
                                 print(f"Text content found: {text_content}")
                                 if hasattr(pp, 'engine_dict'):
                                     engine_data = pp.engine_dict
@@ -1397,7 +1399,7 @@ for file_name in os.listdir(input_dir):
                                     else:
                                         radius_e = 0    
 
-                            print(f"woo cta border {radius_e}")
+
                             
                             if (width_psd, height_psd) in need_valid_sizes:
                                 width_contain = width_psd - 1
