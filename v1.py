@@ -337,6 +337,16 @@ def image_clip_path_generate(image_path, child_layer):
                 else:
                     shape = f"Polygon with {sides} sides"
                     clip_path = "polygon(" + ", ".join(f"{p[0][0]:.1f}px {p[0][1]:.1f}px" for p in approx) + ")"
+                print(f"Contour {i}: Shape type = {shape}")
+                if shape == "Rectangle":
+                    file_path_r = [
+                        image_path,
+                        f"output/{file_name_t}/images/{child_layer.name}_edges.png"
+                    ]
+                    for path_r in file_path_r:
+                        if os.path.exists(path_r):
+                            os.remove(path_r)
+                    return None
 
                 if shape == "Ellipse":
                     print(f"CSS Ellipse Alternative: {css_ellipse}")
@@ -358,7 +368,7 @@ def image_clip_path_generate(image_path, child_layer):
     except Exception as e:
         print(f"Error in create_shapes for {image_path}: {e}")
 
-    # coords = re.findall(r"([\d.-]+)px\s+([\d.-]+)px", clip_path)
+    # coords = re.findall(r"([\d.-]+)px\s+([\d.-]+)px", clip_path) done now
     # points = [(float(x), float(y)) for x, y in coords]
 
     # def analyze_and_simplify_clip_path(points, threshold=16, tolerance=0.05, min_polygon_points=8):
@@ -1175,6 +1185,13 @@ for file_name in os.listdir(input_dir):
                                 countersOne += 1  
                                 idxImageOne += 1    
                             if countersOne == 2:
+                                # if x1 < 0 or y1 < 0:
+                                #     xImg = +1
+                                #     yImg = +1
+                                # else:    
+                                #     xImg = -1
+                                #     yImg = -1
+
                                 css_content.append(f"""
                                     .imageBox{cssImage} {{
                                         width: {width-3}px;
