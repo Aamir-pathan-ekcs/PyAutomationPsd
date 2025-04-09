@@ -489,6 +489,7 @@ for file_name in os.listdir(input_dir):
             width_meta, height_meta = psd.width, psd.height
 
             need_valid_sizes = [(300, 600), (320, 520), (160, 600)]
+            small_valid_sizes = [(300, 50), (320, 50), (300, 100), (320, 100)]
             width_contain = None
             width_psd, height_psd = psd.width, psd.height
 
@@ -541,9 +542,16 @@ for file_name in os.listdir(input_dir):
                         image_path = f"output/{file_name_t}/images/{sanitized_name}.png"
                         if cnt == 0:
                             try:
-                                image.save(image_path)
-                                print(f"Saved image for {layer.name} at {image_path}")
-                                extracted_values['logo_path'] = image_path
+                                if (width_psd, height_psd) in small_valid_sizes:
+                                    width, height = image.size
+                                    image_high = image.resize((width * 2, height * 2), Image.LANCZOS)
+                                    image_high.save(image_path)
+                                    print(f"Saved image for {layer.name} at {image_path}")
+                                    extracted_values['logo_path'] = image_path
+                                else:
+                                    image.save(image_path)
+                                    print(f"Saved image for {layer.name} at {image_path}")
+                                    extracted_values['logo_path'] = image_path
                             except Exception as e:
                                 print(f"Failed to save image for {layer.name}: {e}")
                             outerSection["logo"].append(f'<div class="logo">')
@@ -1053,6 +1061,8 @@ for file_name in os.listdir(input_dir):
                                     font-size: {font_sized}px;
                                     color: rgb{rgb_color};
                                     line-height: {line_height_em}em;
+                                    display: flex;
+                                    align-items: center;
                                     text-align: {text_align};
                                 }}
                                         """)
@@ -1081,6 +1091,8 @@ for file_name in os.listdir(input_dir):
                                     font-size: {font_sized}px;
                                     color: rgb{rgb_color};
                                     line-height: {line_height_em}em;
+                                    display: flex;
+                                    align-items: center;
                                     text-align: {text_align};
                                 }}
                                         """)
