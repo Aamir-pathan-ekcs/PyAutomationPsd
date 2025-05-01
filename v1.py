@@ -176,6 +176,7 @@ def get_text_layer_dimensions(layer):
 def create_shapes(image_path):
     try:
         image = cv2.imread(image_path)
+        height, width = image.shape[:2]
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -211,18 +212,21 @@ def create_shapes(image_path):
                     shape = "Slanted Triangle"
                 else:
                     shape = "Triangle"
-                clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+                clip_path = "polygon(" + ", ".join(f"{(p[0][0] / width * 100):.1f}% {(p[0][1] / height * 100):.1f}%" for p in approx) + ")"
 
             elif sides == 4:
                 shape = "Rectangle"
-                clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+                clip_path = "polygon(" + ", ".join(f"{(p[0][0] / width * 100):.1f}% {(p[0][1] / height * 100):.1f}%" for p in approx) + ")"
 
             elif sides > 8:
                 (center, axes, angle) = cv2.fitEllipse(contour)
                 aspect_ratio = axes[0] / axes[1] if axes[1] != 0 else 1
                 if 0.95 <= aspect_ratio <= 1.05:
                     shape = "Circle"
-                    clip_path = f"circle({axes[0]/2:.1f}px at {center[0]:.1f}px {center[1]:.1f}px)"
+                    radius_percent = (axes[0] / 2 / width * 100)
+                    center_x_percent = (center[0] / width * 100)
+                    center_y_percent = (center[1] / height * 100)
+                    clip_path = f"circle({radius_percent:.1f}% at {center_x_percent:.1f}% {center_y_percent:.1f}%)"
                 else:
                     shape = "Ellipse"
                     num_points = 100
@@ -237,12 +241,14 @@ def create_shapes(image_path):
                         theta = 2 * math.pi * t / num_points
                         x = cx + a * math.cos(theta) * cos_angle - b * math.sin(theta) * sin_angle
                         y = cy + a * math.cos(theta) * sin_angle + b * math.sin(theta) * cos_angle
-                        ellipse_points.append(f"{x:.2f}px {y:.2f}px")
+                        x_percent = (x / width * 100)
+                        y_percent = (y / height * 100)
+                        ellipse_points.append(f"{x_percent:.2f}% {y_percent:.2f}%")
 
                     clip_path = "polygon(" + ", ".join(ellipse_points) + ")"
             else:
                 shape = f"Polygon with {sides} sides"
-                clip_path = "polygon(" + ", ".join(f"{p[0][0]}px {p[0][1]}px" for p in approx) + ")"
+                clip_path = "polygon(" + ", ".join(f"{(p[0][0] / width * 100):.1f}% {(p[0][1] / height * 100):.1f}%" for p in approx) + ")"
 
             print(f"Processed: Shape {i} - {shape}")
             clip_paths.append(clip_path.strip("[]'"))
@@ -261,7 +267,7 @@ def image_clip_path_generate(image_path, child_layer):
         image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
         if image is None:
             raise FileNotFoundError(f"cv2.imread failed to load {image_path}")
-
+        height, width = image.shape[:2]
         if image.shape[2] == 4:
             b, g, r, alpha = cv2.split(image)
             gray = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
@@ -305,13 +311,16 @@ def image_clip_path_generate(image_path, child_layer):
                     
                     if sides == 3:
                         shape = "Triangle"
-                        clip_path = "polygon(" + ", ".join(f"{p[0][0]:.1f}px {p[0][1]:.1f}px" for p in approx) + ")"
+                        clip_path = "polygon(" + ", ".join(f"{(p[0][0] / width * 100):.1f}% {(p[0][1] / height * 100):.1f}%" for p in approx) + ")"
                     elif sides == 4:
                         shape = "Rectangle"
-                        clip_path = "polygon(" + ", ".join(f"{p[0][0]:.1f}px {p[0][1]:.1f}px" for p in approx) + ")"
+                        clip_path = "polygon(" + ", ".join(f"{(p[0][0] / width * 100):.1f}% {(p[0][1] / height * 100):.1f}%" for p in approx) + ")"
                     elif sides > 8 and 0.95 <= aspect_ratio <= 1.05:
                         shape = "Circle"
-                        clip_path = f"circle({axes[0]/2:.1f}px at {center[0]:.1f}px {center[1]:.1f}px)"
+                        radius_percent = (axes[0] / 2 / width * 100)  # Use width for radius normalization
+                        center_x_percent = (center[0] / width * 100)
+                        center_y_percent = (center[1] / height * 100)
+                        clip_path = f"circle({radius_percent:.1f}% at {center_x_percent:.1f}% {center_y_percent:.1f}%)"
                     elif sides > 6 and (aspect_ratio < 0.95 or aspect_ratio > 1.05):
                         shape = "Ellipse"
                         num_points = 256 
@@ -327,16 +336,22 @@ def image_clip_path_generate(image_path, child_layer):
                             theta = 2 * math.pi * t / num_points
                             x = cx + a * math.cos(theta) * cos_angle - b * math.sin(theta) * sin_angle
                             y = cy + a * math.cos(theta) * sin_angle + b * math.sin(theta) * cos_angle
-                            ellipse_points.append(f"{x:.1f}px {y:.1f}px")
+                            x_percent = (x / width * 100)
+                            y_percent = (y / height * 100)
+                            ellipse_points.append(f"{x_percent:.1f}% {y_percent:.1f}%")
                         
                         clip_path = "polygon(" + ", ".join(ellipse_points) + ")"
-                        css_ellipse = f"ellipse({a:.1f}px {b:.1f}px at {cx:.1f}px {cy:.1f}px) rotate({angle:.1f}deg)"
+                        a_percent = (a / width * 100)
+                        b_percent = (b / height * 100)
+                        cx_percent = (cx / width * 100)
+                        cy_percent = (cy / height * 100)
+                        css_ellipse = f"ellipse({a_percent:.1f}% {b_percent:.1f}% at {cx_percent:.1f}% {cy_percent:.1f}%) rotate({angle:.1f}deg)"
                     else:
                         shape = f"Polygon with {sides} sides"
-                        clip_path = "polygon(" + ", ".join(f"{p[0][0]:.1f}px {p[0][1]:.1f}px" for p in approx) + ")"
+                        clip_path = "polygon(" + ", ".join(f"{(p[0][0] / width * 100):.1f}% {(p[0][1] / height * 100):.1f}%" for p in approx) + ")"
                 else:
                     shape = f"Polygon with {sides} sides"
-                    clip_path = "polygon(" + ", ".join(f"{p[0][0]:.1f}px {p[0][1]:.1f}px" for p in approx) + ")"
+                    clip_path = "polygon(" + ", ".join(f"{(p[0][0] / width * 100):.1f}% {(p[0][1] / height * 100):.1f}%" for p in approx) + ")"
                 print(f"Contour {i}: Shape type = {shape}")
                 if shape == "Rectangle":
                     file_path_r = [
@@ -760,7 +775,8 @@ for file_name in os.listdir(input_dir):
                                 background-color: rgb{ShapeColor};
                                 border-radius: {border_radius_shape};
                                 clip-path: {clip_path};
-                                -webkit-clip-path: {clip_path}
+                                -webkit-clip-path: {clip_path};
+                                -moz-clip-path: {clip_path}
                             
                             }}
                                         """)
@@ -1062,6 +1078,7 @@ for file_name in os.listdir(input_dir):
                                     color: rgb{rgb_color};
                                     line-height: {line_height_em}em;
                                     display: flex;
+                                    justify-content: center;
                                     align-items: center;
                                     text-align: {text_align};
                                 }}
@@ -1092,6 +1109,7 @@ for file_name in os.listdir(input_dir):
                                     color: rgb{rgb_color};
                                     line-height: {line_height_em}em;
                                     display: flex;
+                                    justify-content: center;
                                     align-items: center;
                                     text-align: {text_align};
                                 }}
@@ -1215,7 +1233,8 @@ for file_name in os.listdir(input_dir):
                                         overflow: hidden;
                                         border-radius: {border_radius};
                                         clip-path: {clip_path};
-                                        -webkit-clip-path: {clip_path}
+                                        -webkit-clip-path: {clip_path};
+                                        -moz-clip-path: {clip_path}
                                     }}
                                     .imageBox{cssImage} img {{
                                         width: {width-3}px;
@@ -1343,7 +1362,8 @@ for file_name in os.listdir(input_dir):
                                         overflow: hidden;
                                         border-radius: {border_radius};
                                         clip-path: {clip_path};
-                                        -webkit-clip-path: {clip_path}
+                                        -webkit-clip-path: {clip_path};
+                                        -moz-clip-path: {clip_path}
                                     }}
                                     .imageBox2 img {{
                                         width: {width-3}px;
@@ -1587,7 +1607,7 @@ for file_name in os.listdir(input_dir):
                                 '<div class="container" id="sd_bgcolor_Main-Background">',
                                 '<a href="javascript:window.open(window.trackingUrl + window.clickTag)"></a>',
                                 '<a class="clicktru" target="_blank" href="#"></a>',
-                                # '<div class="contentSection">'
+                                # '<div class="contentSection"> done'
                         ]
                 content_html_app = []
                 css_content = [
